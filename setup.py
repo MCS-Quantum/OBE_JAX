@@ -13,7 +13,7 @@ with open('obe_jax/constants.py') as f:
 
 setup(name=name,
       version=version,
-      description="Optimal Bayesian Experimental Design in Jax",
+      description="Optimal Bayesian Experimental Design in JAX",
       long_description=long_description,
       classifiers=[
           "Intended Audience :: Science/Research",
