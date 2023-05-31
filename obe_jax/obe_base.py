@@ -1,5 +1,3 @@
-__author__ = 'Bob McMichael'
-
 import numpy as np
 
 from obe_jax import ParticlePDF
