@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from optbayesexpt import OptBayesExpt
+from obe_jax import OptBayesExpt
 
 """
 ESTABLISH THE EXPERIMENTAL MODEL

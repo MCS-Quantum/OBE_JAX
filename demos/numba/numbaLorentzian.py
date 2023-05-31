@@ -23,7 +23,7 @@ where the computation time was spent.  Important column headings include:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from optbayesexpt import OptBayesExpt, MeasurementSimulator
+from obe_jax import OptBayesExpt, MeasurementSimulator
 import cProfile
 from pstats import Stats
 

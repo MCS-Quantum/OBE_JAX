@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from optbayesexpt.samplers import sample,Liu_West_resampler
+from obe_jax.samplers import sample,Liu_West_resampler
 
 GOT_NUMBA = False
 # GOT_NUMBA = True

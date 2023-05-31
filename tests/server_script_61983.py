@@ -4,7 +4,7 @@ Server script for helpme_test_server.py
 listens to port 61983
 """
 
-from optbayesexpt import OptBayesExpt, OBE_Server
+from obe_jax import OptBayesExpt, OBE_Server
 import numpy as np
 
 

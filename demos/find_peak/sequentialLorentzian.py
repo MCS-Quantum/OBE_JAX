@@ -18,7 +18,7 @@ The script has three main stages:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from optbayesexpt import OptBayesExpt, MeasurementSimulator
+from obe_jax import OptBayesExpt, MeasurementSimulator
 
 ########################################################################
 #           SETUP

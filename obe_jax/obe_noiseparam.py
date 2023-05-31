@@ -1,4 +1,4 @@
-from optbayesexpt.obe_base import OptBayesExpt
+from obe_jax.obe_base import OptBayesExpt
 
 import numpy as np
 

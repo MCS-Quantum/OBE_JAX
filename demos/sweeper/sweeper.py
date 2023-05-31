@@ -12,7 +12,7 @@ The script has three main stages:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from optbayesexpt import MeasurementSimulator
+from obe_jax import MeasurementSimulator
 
 from obe_sweeper import OptBayesExptSweeper
 

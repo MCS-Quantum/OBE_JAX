@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.testing import assert_array_equal, assert_allclose
-from optbayesexpt import MeasurementSimulator, trace_sort
+from obe_jax import MeasurementSimulator, trace_sort
 
 
 def setup():

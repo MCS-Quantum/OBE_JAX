@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from optbayesexpt import Socket
+from obe_jax import Socket
 
 
 myClient = Socket('client', port=60899)

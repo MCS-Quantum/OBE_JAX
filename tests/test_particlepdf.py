@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.testing import assert_array_equal, assert_allclose
-from optbayesexpt import ParticlePDF
+from obe_jax import ParticlePDF
 
 
 def setup():

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path as path
 import glob
-from optbayesexpt import trace_sort
+from obe_jax import trace_sort
 
 datadir = "fit_vs_obe_data"
 

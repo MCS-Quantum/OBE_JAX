@@ -9,7 +9,7 @@ This example server is configured with a Lorentzian model, and unknown
 parameters: center frequency, amplitude, and linewidth.
 """
 
-import optbayesexpt as obe
+import obe_jax as obe
 import numpy as np
 
 

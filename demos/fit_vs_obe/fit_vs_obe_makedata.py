@@ -8,7 +8,7 @@ import os.path as path
 import os
 from multiprocessing import Pool, cpu_count
 
-from optbayesexpt import OptBayesExpt
+from obe_jax import OptBayesExpt
 
 ################################
 #  Switches to do/skip different calculations

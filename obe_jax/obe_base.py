@@ -2,12 +2,12 @@ __author__ = 'Bob McMichael'
 
 import numpy as np
 
-from optbayesexpt import ParticlePDF
+from obe_jax import ParticlePDF
 
 try:
     from scipy.stats import differential_entropy as diffent
 except ImportError:
-    from optbayesexpt.obe_utils import differential_entropy as diffent
+    from obe_jax.obe_utils import differential_entropy as diffent
 
 GOT_NUMBA = True
 try:

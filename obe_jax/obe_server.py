@@ -1,4 +1,4 @@
-from optbayesexpt.obe_socket import Socket
+from obe_jax.obe_socket import Socket
 import numpy as np
 
 

@@ -3,7 +3,7 @@ Tests the Bayesian inference algorithms
 """
 
 import numpy as np
-from optbayesexpt import OptBayesExpt
+from obe_jax import OptBayesExpt
 
 rng = np.random.default_rng()
 

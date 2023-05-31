@@ -8,12 +8,12 @@ with open(os.path.join(os.getcwd(), 'README.md'), "r") as f:
 
 # Fetches package details from constants.py file
 # name, version, author, url, author_email
-with open('optbayesexpt/constants.py') as f:
+with open('obe_jax/constants.py') as f:
     exec(f.read())
 
 setup(name=name,
       version=version,
-      description="Optimal Bayesian Experimental Design",
+      description="Optimal Bayesian Experimental Design in Jax",
       long_description=long_description,
       classifiers=[
           "Intended Audience :: Science/Research",

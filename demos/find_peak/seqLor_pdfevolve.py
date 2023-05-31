@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import optbayesexpt as obe
+import obe_jax as obe
 
 
 def lorentz(x, x0, a, b, d):

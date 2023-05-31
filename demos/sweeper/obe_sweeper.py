@@ -1,5 +1,5 @@
 import numpy as np
-from optbayesexpt import OptBayesExptNoiseParameter
+from obe_jax import OptBayesExptNoiseParameter
 try:
     rng = np.random.default_rng()
 except AttributeError:

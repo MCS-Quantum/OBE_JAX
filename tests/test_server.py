@@ -3,7 +3,7 @@ Tests OBE_Server, but relies on OptBayesExpt and Socket
 """
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
-from optbayesexpt import OptBayesExpt, OBE_Server, Socket
+from obe_jax import OptBayesExpt, OBE_Server, Socket
 import os
 from subprocess import Popen
 

@@ -31,8 +31,8 @@ features not covered by OptBayesExpt:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from optbayesexpt import MeasurementSimulator, trace_sort
-from optbayesexpt import OptBayesExptNoiseParameter
+from obe_jax import MeasurementSimulator, trace_sort
+from obe_jax import OptBayesExptNoiseParameter
 
 # script parameters
 #
