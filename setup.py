@@ -26,7 +26,7 @@ setup(name=name,
           "Topic :: Software Development :: Libraries :: Python Modules",
           'Development Status :: 4 - Beta'
       ],
-      install_requires=['numpy', 'scipy', 'matplotlib'],
+      install_requires=['numpy', 'scipy', 'matplotlib', 'jax'],
       setup_requires=['pytest-runner'],
       tests_require=['pytest'],
       keywords='bayesian measurement physics experimental design',
