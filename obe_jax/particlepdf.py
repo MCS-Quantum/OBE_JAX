@@ -1,13 +1,6 @@
-import numpy as np
-import warnings
-from obe_jax.samplers import sample,Liu_West_resampler
-
-GOT_NUMBA = False
-# GOT_NUMBA = True
-try:
-    from numba import njit, float64
-except ImportError:
-    GOT_NUMBA = False
+import jax.numpy as jnp
+from jax import random, jit
+from obe_jax.samplers import sample, Liu_West_resampler
 
 
 class ParticlePDF:
@@ -32,7 +25,19 @@ class ParticlePDF:
         ``resample()`` method documentation for details.
 
     Arguments:
-        prior (:obj:`2D array-like`):
+        key (:obj:`jax.PRNGKey`):
+            The pseudo-random number generator key used to seed all 
+            random functions'
+
+        particles (:obj:`2D array-like`):
+            The Bayesian *prior*, which initializes the :obj:`ParticlePDF`
+            distribution. Each of ``n_dims`` sub-arrays contains
+            ``n_particles`` values of a single parameter, so that the *j*\
+            _th elements of the sub-arrays determine the coordinates of a
+            point in parameter space. Users are encouraged to experiment with
+            different ``n_particles`` sizes to assure consistent results.
+            
+        weights (:obj:`2D array-like`):
             The Bayesian *prior*, which initializes the :obj:`ParticlePDF`
             distribution. Each of ``n_dims`` sub-arrays contains
             ``n_particles`` values of a single parameter, so that the *j*\
@@ -42,24 +47,39 @@ class ParticlePDF:
 
     Keyword Args:
 
-        resample_threshold (:obj:`float`): Sets a threshold for automatic
-            resampling. Resampling is triggered when the effective fraction of
-            particles, :math:`1 / (N\\sum_i^N w_i^2)`, is smaller than
-            ``resample_threshold``.  Default ``0.5``.
-
-        auto_resample (:obj:`bool`): Determines whether threshold testing and
-            resampling are performed when ``bayesian_update()`` is called.
-            Default ``True``.
-
-        use_jit (:obj:`bool`): Allows precompilation of some methods for a
-            modest increase in speed.  Only effective on systems where
-            ``numba`` is installed. Default ``True``
+        TBD
 
     **Attributes:**
     """
 
-    def __init__(self, prior, resampler=Liu_West_resampler, resample_threshold=0.5,
-                 auto_resample=True, use_jit=True, **kwargs):
+    def __init__(self, key, particles, weights, resampler=Liu_West_resampler,
+                 tuning_parameters = {'resample_threshold':0.5,'auto_resample':True},
+                 resampling_parameters = {'a':0.98, 'scale':True}, 
+                 just_resampled=True, **kwargs):
+        
+        # The jax.random.PRNGkey() for random number sampling
+        self.key = key
+        
+        #: ``n_dims x n_particles ndarray`` of ``float64``: Together with
+        #: ``weights``,#: these ``n_particles`` points represent
+        #: the parameter probability distribution. Initialized by the
+        #: ``prior`` argument.
+        self.particles = jnp.asarray(particles)
+        
+        #: ndarray of ``float64``: Array of probability weights
+        #: corresponding to the particles.
+        self.weights = jnp.asarray(weights)
+        
+        #: ``int``: the number of parameter samples representing the
+        #: probability distribution. Determined from the trailing dimension
+        #: of ``prior``.
+        self.n_particles = self.particles.shape[1 ]
+
+        #: ``int``: The number of parameters, i.e. the dimensionality of
+        #: parameter space. Determined from the leading dimension of ``prior``.
+        self.n_dims = self.particles.shape[0]
+        
+        self.resampler=resampler
 
         #: dict: A package of parameters affecting the resampling algorithm
         #:
@@ -69,83 +89,15 @@ class ParticlePDF:
         #:
         #:     - ``'auto_resample'`` (:obj:`bool`): Initially, the value of the
         #:       ``auto_resample`` keyword argument. Default ``True``.
-        self.tuning_parameters = {'resample_threshold': resample_threshold,
-                                  'auto_resample': auto_resample}
-        self.resampler = resampler
-        self.resampler_params = kwargs
-
-        #: ``n_dims x n_particles ndarray`` of ``float64``: Together with
-        #: ``particle_weights``,#: these ``n_particles`` points represent
-        #: the parameter probability distribution. Initialized by the
-        #: ``prior`` argument.
-        self.particles = np.asarray(prior)
-
-        #: ``int``: the number of parameter samples representing the
-        #: probability distribution. Determined from the trailing dimension
-        #: of ``prior``.
-        self.n_particles = self.particles.shape[-1]
-
-        #: ``int``: The number of parameters, i.e. the dimensionality of
-        #: parameter space. Determined from the leading dimension of ``prior``.
-        self.n_dims = self.particles.shape[0]
-
-        #: ``ndarray`` of ``int``: Indices into the particle arrays.
-        self._particle_indices = np.arange(self.n_particles, dtype='int')
-
-        #: ndarray of ``float64``: Array of probability weights
-        #: corresponding to the particles.
-        self.particle_weights = np.ones(self.n_particles) / self.n_particles
+        self.tuning_parameters = tuning_parameters
+        self.resampling_parameters = resampling_parameters
 
         #: ``bool``: A flag set by the ``resample_test()`` function. ``True`` if
         #: the last ``bayesian_update()`` resulted in resampling,
         #: else ``False``.
-        self.just_resampled = False
+        self.just_resampled = just_resampled
 
-        # Precompile numerically intensive functions for speed
-        # and overwrite _normalized_product() method.
-        if GOT_NUMBA and use_jit:
-            @njit([float64[:](float64[:], float64[:])], cache=True)
-            def _proto_normalized_product(wgts, lkl):
-                tmp = wgts * lkl
-                return tmp / np.sum(tmp)
-        else:
-            def _proto_normalized_product(wgts, lkl):
-                tmp = np.nan_to_num(wgts * lkl)
-                result = np.nan_to_num(tmp / np.sum(tmp))
-                return result
-            self._normalized_product = _proto_normalized_product
-
-        try:
-            self.rng = np.random.default_rng()
-        except AttributeError:
-            self.rng = np.random
-
-    def set_pdf(self, samples, weights=None):
-        """Re-initializes the probability distribution
-
-        Also resets ``n_particles`` and ``n_dims`` deduced from the
-        dimensions of ``samples``.
-
-        Args:
-            samples (array-like):  A representation of the new distribution
-                comprising `n_dims` sub-arrays of `n_particles`
-                samples of each parameter.
-            weights (ndarray): If ``None``, weights will be assigned uniform
-                probability.  Otherwise, an array of length ``n_particles``
-        """
-        self.particles = np.asarray(samples)
-        self.n_particles = self.particles.shape[-1]
-        self.n_dims = self.particles.shape[0]
-        if weights is None:
-            self.particle_weights = np.ones(self.n_particles)\
-                                    / self.n_particles
-        else:
-            if len(weights) != self.n_particles:
-                raise ValueError('Length of weights does not match the '
-                                 'number of particles.')
-            else:
-                self.particle_weights = weights / np.sum(weights)
-
+    @jit
     def mean(self):
         """Calculates the mean of the probability distribution.
 
@@ -155,9 +107,9 @@ class ParticlePDF:
         Returns:
             Size ``n_dims`` array.
         """
-        return np.average(self.particles, axis=1,
-                          weights=self.particle_weights)
-
+        return jnp.average(self.particles, axis=1,
+                          weights=self.weights)
+    @jit
     def covariance(self):
         """Calculates the covariance of the probability distribution.
 
@@ -166,33 +118,36 @@ class ParticlePDF:
             ``n_dims`` X ``n_dims`` array. See also :obj:`mean()` and
             :obj:`std()`.
         """
-
-        raw_covariance = np.cov(self.particles, aweights=self.particle_weights)
-        if self.n_dims == 1:
+        n_dims = self.particles.shape[0]
+        raw_covariance = jnp.cov(self.particles, aweights=self.weights)
+        if n_dims == 1:
             return raw_covariance.reshape((1, 1))
         else:
             return raw_covariance
+        
+#     def std(self):
+#         """Calculates the standard deviation of the distribution.
 
-    def std(self):
-        """Calculates the standard deviation of the distribution.
+#         Calculates the square root of the diagonal elements of the
+#         covariance matrix.  See also :obj:`covariance()` and :obj:`mean()`.
 
-        Calculates the square root of the diagonal elements of the
-        covariance matrix.  See also :obj:`covariance()` and :obj:`mean()`.
+#         Returns:
+#             The standard deviation as an n_dims array.
+#         """
+#         n_dims = self.particles.shape[0]
+#         var = jnp.zeros(n_dims)
+#         for i, p in enumerate(self.particles):
+#             mean = np.dot(p, self.weights)
+#             msq = np.dot(p*p, self.weights)
+#             var[i] = msq - mean ** 2
+#         return np.sqrt(var)
 
-        Returns:
-            The standard deviation as an n_dims array.
-        """
-        var = np.zeros(self.n_dims)
-        for i, p in enumerate(self.particles):
-            mean = np.dot(p, self.particle_weights)
-            msq = np.dot(p*p, self.particle_weights)
-            var[i] = msq - mean ** 2
-        return np.sqrt(var)
 
-    def bayesian_update(self, likelihood):
+    @jit
+    def update_weights(self, likelihood):
         """Performs a Bayesian update on the probability distribution.
 
-        Multiplies ``particle_weights`` by the ``likelihood`` and
+        Multiplies ``weights`` by the ``likelihood`` and
         renormalizes the probability
         distribution.  After the update, the distribution is tested for
         resampling depending on
@@ -203,12 +158,34 @@ class ParticlePDF:
                 describing the Bayesian likelihood of a measurement result
                 calculated for each parameter combination.
          """
-        self.particle_weights = self._normalized_product(self.particle_weights,
-                                              likelihood)
+        weights = (likelihood*self.weights)
+        return weights/jnp.sum(weights)
+        
 
+    def bayesian_update(self, likelihood):
+        """Performs a Bayesian update on the probability distribution.
+
+        Multiplies ``weights`` by the ``likelihood`` and
+        renormalizes the probability
+        distribution.  After the update, the distribution is tested for
+        resampling depending on
+        ``self.tuning_parameters['auto_resample']``.
+
+        Args:
+            likelihood: (:obj:`ndarray`):  An ``n_samples`` sized array
+                describing the Bayesian likelihood of a measurement result
+                calculated for each parameter combination.
+         """
+        self.weights = self.update_weights(likelihood)
+        
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
-
+    
+    @jit
+    def n_eff(self):
+        wsquared = jnp.square(self.weights)
+        return 1 / jnp.sum(wsquared)
+    
     def resample_test(self):
         """Tests the distribution and performs a resampling if required.
 
@@ -216,24 +193,18 @@ class ParticlePDF:
         ``self.tuning_parameters['resample_threshold'] * n_particles``,
         performs a resampling.  Sets the ``just_resampled`` flag.
         """
-        wsquared = np.nan_to_num(self.particle_weights * self.particle_weights)
-        n_eff = 1 / np.sum(wsquared)
-        if n_eff < 0.1 * self.n_particles:
-            warnings.warn("\nParticle filter rejected > 90 % of particles. "
-                          f"N_eff = {n_eff:.2f}. "
-                          "Particle impoverishment may lead to errors.",
-                          RuntimeWarning)
-            self.resample()
-            self.just_resampled = True
-        # n_eff = 1 / (self.particle_weights @ self.particle_weights)
-        elif n_eff / self.n_particles < \
-                self.tuning_parameters['resample_threshold']:
-            self.resample()
+        threshold = self.tuning_parameters['resample_threshold']
+        n_eff = self.n_eff()
+        if n_eff / self.n_particles < threshold:
+            key, subkey = random.split(self.key)
+            self.resample(subkey)
+            self.key = key
             self.just_resampled = True
         else:
             self.just_resampled = False
-
-    def resample(self):
+        
+    @jit
+    def resample(self,key):
         """Performs a resampling of the distribution as specified by 
         and self.resampler and self.resampler_params.
 
@@ -262,16 +233,16 @@ class ParticlePDF:
         """
 
         # Call the resampler function to get a new set of particles
-        # and overwrite the current particles in-place
-        self.particles = self.resampler(self.particles, self.particle_weights, **self.resampler_params)
+        new_particles = self.resampler(key, self.particles, self.weights, **self.resampling_parameters)
         # Re-fill the current particle weights with 1/n_particles
-        self.particle_weights.fill( 1.0 / self.n_particles)
+        new_weights = jnp.full(self.n_particles, 1/self.n_particles)
+        return new_particles, new_weights
 
     def randdraw(self, n_draws=1):
         """Provides random parameter draws from the distribution
 
         Particles are selected randomly with probabilities given by
-        ``self.particle_weights``.
+        ``self.weights``.
 
         Args:
             n_draws (:obj:`int`): the number of draws requested.  Default
@@ -280,23 +251,29 @@ class ParticlePDF:
         Returns:
             An ``n_dims`` x ``N_DRAWS`` :obj:`ndarray` of parameter draws.
         """
-        
-        return sample(self.particles,self.particle_weights,n=n_draws)
-
-    @staticmethod
-    def _normalized_product(weight_array, likelihood_array):
-        """multiplies two arrays and normalizes the result.
-
-        Functionality is added by overwriting in __init__().
-        Precompiled by numba if available and if `use_jit = True`.
-
-        Args:
-            weight_array (``ndarray``): typically particle weights
-            likelihood_array(``ndarray``: typically likelihoods
-
-        Returns: a probability ``np.array`` with sum = 1.
-        """
-        pass
+        key, subkey = random.split(self.key)
+        self.key = key
+        return sample(subkey, self.particles, self.weights, n=n_draws)
+    
+    
+    def _tree_flatten(self):
+        children = (self.key, self.particles, self.weights)  # arrays / dynamic values
+        aux_data = {'n_particles':self.n_particles, 
+                    'resampler':self.resampler,
+                    'n_dims':self.n_dims, 
+                    'tuning_parameters': self.tuning_parameters,
+                    'resampling_parameters':self.resampling_parameters,
+                    'just_resampled':self.just_resampled}  # static values
+        return (children, aux_data)
+    
+    @classmethod
+    def _tree_unflatten(cls, aux_data, children):
+        return cls(*children,**aux_data)
 
 # end ParticlePDF definition
 
+
+from jax import tree_util
+tree_util.register_pytree_node(ParticlePDF,
+                               ParticlePDF._tree_flatten,
+                               ParticlePDF._tree_unflatten)
