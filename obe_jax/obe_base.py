@@ -2,11 +2,7 @@ import jax.numpy as jnp
 from jax import jit, vmap
 
 from obe_jax import ParticlePDF
-
-# try:
-#     from scipy.stats import differential_entropy as diffent
-# except ImportError:
-#     from obe_jax.obe_utils import differential_entropy as diffent
+from obe_jax.utility_measures import entropy_change
 
 class OBE_PDF(ParticlePDF):
     """An implementation of sequential Bayesian experiment design.
@@ -28,17 +24,18 @@ class OBE_PDF(ParticlePDF):
     """
 
     def __init__(self, key, particles, weights, 
-                 likelihood_function=None, utility_measure=None, expected_outputs=None,
+                 likelihood_function=None, utility_measure=entropy_change, expected_outputs=None,
                  **kwargs):
         
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
         # Test if there is a precompute function and set a flag
-        self.likelihood_function = likelihood_function # takes (oneinput,oneoutput,oneparameter)    
-        oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput, oneoutput, multiparameters)   
+        self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
+        oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
         self.oneinput_oneoutput_multiparams = oneinput_oneoutput_multiparams
-        self.oneinput_multioutput_multiparams = jit(vmap(oneinput_oneoutput_multiparams,in_axes = (None,1,None)))# takes (oneinput, multioutput, multiparameters)   
+        self.oneinput_multioutput_multiparams = jit(vmap(oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
+        self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
         self.expected_outputs = jnp.asarray(expected_outputs)
 
     @jit
@@ -64,38 +61,19 @@ class OBE_PDF(ParticlePDF):
         
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
-    
-    
-    @jit
-    def utility(self, oneinput, oneoutput):
-        """
-        Returns the utility that would be derived from an experiment with oneinput that
-        returns oneoutput. 
-        """
-        ls = self.oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles)
-        new_weights = self.update_weights(ls)
-        return self.utility_measure(self.particles, self.weights, new_weights)
-    
-    @jit
-    def multioutput_utility(self, oneinput, outputs):
-        """
-        Returns the utilities that would be derived from an experiment with oneinput and various outputs
-        """
-        umap = jit(vmap(self.utility,in_axes=(None,0)))
-        return umap(oneinput,outputs)
      
     @jit
     def expected_utility(self,oneinput):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
-        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,self.particles) # shape n_outputs x n_particles
+        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,self.particles) # shape n_particles x n_outputs
         # This gives the probability of measuring various outputs/parameters for a single input
-        us = self.multioutput_utility(oneinput,self.expected_outputs)
+        us = self.multioutput_utility(self.particles,self.weights,ls)
 
         return jnp.sum(jnp.dot(ls,us))
     
     @jit
     def expected_utilities(self,inputs):
-        umap = jit(vmap(self.expected_utility,in_axes=(1)))
+        umap = jit(vmap(self.expected_utility,in_axes=(1,)))
         return umap(inputs)
         
     def _tree_flatten(self):
@@ -104,6 +82,7 @@ class OBE_PDF(ParticlePDF):
                     'oneinput_oneoutput_multiparams':self.oneinput_oneoutput_multiparams,
                     'oneinput_multioutput_multiparams':self.oneinput_multioutput_multiparams, 
                     'utility_measure':self.utility_measure,
+                    'multioutput_utility': self.multioutput_utility,
                     'expected_outputs':self.expected_outputs}
         return (children, aux_data)
     
