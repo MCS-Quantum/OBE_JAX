@@ -1,5 +1,5 @@
 from obe_jax.particlepdf import ParticlePDF
-from obe_jax.obe_base import OptBayesExpt
+from obe_jax.abstractbayesmodel import AbstractBayesianModel
 from obe_jax.utility_measures import *
 
 from obe_jax.constants import version as __version__

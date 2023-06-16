@@ -4,23 +4,17 @@ from jax import jit, vmap
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
 
-class OBE_PDF(ParticlePDF):
-    """An implementation of sequential Bayesian experiment design.
+class AbstractBayesianModel(ParticlePDF):
+    """An abstract Bayesian probabilistic model for a system with 
+    unknown parameters. This class defines a Bayesian model for a 
+    system with oututs predictable from a likelihood function
+    that is paramaterized by a set of underlying parameters 
+    which are inteded to be estimated. 
 
-    OptBayesExpt is a manager that calculates strategies for efficient
-    measurement runs. OptBayesExpt incorporates measurement data, and uses
-    that information to select inputs for measurements with high
-    predicted benefit / cost ratios.
+   This abstract class implements the basic methods needed to 
+   sequentially update the probabilistic model from new measurements
+   and compute utilities of future experimental inputs.
 
-    The use cases are situations where the goal is to find the parameters of
-    a parametric model.
-
-    The primary functions of this class are to interpret measurement data
-    and to calculate effective inputs.
-
-        \*\*kwargs: Keyword arguments passed to the parent ParticlePDF class.
-
-    **Attributes:**
     """
 
     def __init__(self, key, particles, weights, 
@@ -91,6 +85,6 @@ class OBE_PDF(ParticlePDF):
         return cls(*children,**aux_data)
     
 from jax import tree_util
-tree_util.register_pytree_node(OBE_PDF,
-                               OBE_PDF._tree_flatten,
-                               OBE_PDF._tree_unflatten)
+tree_util.register_pytree_node(AbstractBayesianModel,
+                               AbstractBayesianModel._tree_flatten,
+                               AbstractBayesianModel._tree_unflatten)
