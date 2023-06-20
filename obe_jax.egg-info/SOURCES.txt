@@ -2,8 +2,8 @@ LICENSE.md
 README.md
 setup.py
 obe_jax/__init__.py
+obe_jax/abstractbayesmodel.py
 obe_jax/constants.py
-obe_jax/obe_base.py
 obe_jax/particlepdf.py
 obe_jax/samplers.py
 obe_jax/utility_measures.py

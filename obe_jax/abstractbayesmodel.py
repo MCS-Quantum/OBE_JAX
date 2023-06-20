@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import jit, vmap
+from jax import jit, vmap, random
 
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
@@ -18,19 +18,19 @@ class AbstractBayesianModel(ParticlePDF):
     """
 
     def __init__(self, key, particles, weights, 
-                 likelihood_function=None, utility_measure=entropy_change, expected_outputs=None,
+                 likelihood_function=None, expected_outputs=None, utility_measure=entropy_change,
                  **kwargs):
         
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
-        # Test if there is a precompute function and set a flag
         self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
-        oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
-        self.oneinput_oneoutput_multiparams = oneinput_oneoutput_multiparams
-        self.oneinput_multioutput_multiparams = jit(vmap(oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
+        self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
+        self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
+        self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
         self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
         self.expected_outputs = jnp.asarray(expected_outputs)
+        self.num_expected_outputs = expected_outputs.shape[1]
 
     @jit
     def updated_weights_from_experiment(self, oneinput, oneoutput):
@@ -69,6 +69,17 @@ class AbstractBayesianModel(ParticlePDF):
     def expected_utilities(self,inputs):
         umap = jit(vmap(self.expected_utility,in_axes=(1,)))
         return umap(inputs)
+    
+    def sample_output(self,oneinput,oneparam):
+        ls = self.oneinput_multioutput_oneparam(oneinput,self.expected_outputs,oneparam)
+        key, subkey = random.split(self.key)
+        self.key = key
+        output = random.choice(subkey,self.expected_outputs,p=ls[:,0],axis=1)
+        return output
+    
+    def sample_outputs(self, inputs, oneparam):
+        num_inputs = inputs.shape[1]
+        return jnp.hstack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)])
         
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
