@@ -3,7 +3,6 @@ from jax import jit, vmap, random, lax
 
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
-from functools import partial
 
 class AbstractBayesianModel(ParticlePDF):
     """An abstract Bayesian probabilistic model for a system with 
@@ -82,12 +81,12 @@ class AbstractBayesianModel(ParticlePDF):
 
     def expected_utility_k_particles(self,oneinput,k=10):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
-        weights, inds = jnp.top_k(self.weights,k)
+        weights, inds = lax.top_k(self.weights,k)
         particles = self.particles[:,inds]
         return self._expected_utility(oneinput,particles,weights)
     
     def expected_utilities_k_particles(self,inputs,k=10):
-        weights, inds = jnp.top_k(self.weights,k)
+        weights, inds = lax.top_k(self.weights,k)
         particles = self.particles[:,inds]
         return self._expected_utilities(inputs,particles,weights)
     
