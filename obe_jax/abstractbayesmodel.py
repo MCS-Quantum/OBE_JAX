@@ -66,7 +66,7 @@ class AbstractBayesianModel(ParticlePDF):
     
     @jit
     def _expected_utilities(self,inputs,particles,weights):
-        umap = jit(vmap(self.expected_utility,in_axes=(1,None,None)))
+        umap = jit(vmap(self._expected_utility,in_axes=(1,None,None)))
         return umap(inputs,particles,weights)
          
     @jit
