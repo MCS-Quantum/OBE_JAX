@@ -56,36 +56,40 @@ class AbstractBayesianModel(ParticlePDF):
         
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
-     
+    @jit
+    def _expected_utility(self,oneinput,particles,weights):
+        # Compute a matrix of likelihoods for various output/parameter combinations. 
+        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,particles) # shape n_particles x n_outputs
+        # This gives the probability of measuring various outputs/parameters for a single input
+        us = self.multioutput_utility(particles,weights,ls)
+
+        return jnp.sum(jnp.dot(ls,us))
+    
+    @jit
+    def _expected_utilities(self,inputs,particles,weights):
+        umap = jit(vmap(self.expected_utility,in_axes=(1,None,None)))
+        return umap(inputs,particles,weights)
+         
     @jit
     def expected_utility(self,oneinput):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
-        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,self.particles) # shape n_particles x n_outputs
-        # This gives the probability of measuring various outputs/parameters for a single input
-        us = self.multioutput_utility(self.particles,self.weights,ls)
-
-        return jnp.sum(jnp.dot(ls,us))
+        return self._expected_utility(oneinput,self.particles,self.weights)
     
     @jit
     def expected_utilities(self,inputs):
         umap = jit(vmap(self.expected_utility,in_axes=(1,)))
         return umap(inputs)
-    
-    @partial(jit,static_argnames=['k'])
+
     def expected_utility_k_particles(self,oneinput,k=10):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
-        weights , inds = lax.top_k(self.weights,k)
+        weights, inds = jnp.top_k(self.weights,k)
         particles = self.particles[:,inds]
-        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,particles) # shape n_particles x n_outputs
-        # This gives the probability of measuring various outputs/parameters for a single input
-        us = self.multioutput_utility(particles, weights, ls)
-
-        return jnp.sum(jnp.dot(ls,us))
+        return self._expected_utility(oneinput,particles,weights)
     
-    @partial(jit,static_argnames=['k'])
     def expected_utilities_k_particles(self,inputs,k=10):
-        umap = jit(vmap(self.expected_utility_k_particles,in_axes=(1,None)))
-        return umap(inputs,k)
+        weights, inds = jnp.top_k(self.weights,k)
+        particles = self.particles[:,inds]
+        return self._expected_utilities(inputs,particles,weights)
     
     def sample_output(self,oneinput,oneparam):
         # This can definitely be re-written to parallelize the computation of likelihoods up-front 
