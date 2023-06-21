@@ -55,7 +55,7 @@ class ParticlePDF:
     def __init__(self, key, particles, weights, resampler=Liu_West_resampler,
                  tuning_parameters = {'resample_threshold':0.5,'auto_resample':True},
                  resampling_parameters = {'a':0.98, 'scale':True}, 
-                 just_resampled=True, **kwargs):
+                 just_resampled=False, **kwargs):
         
         # The jax.random.PRNGkey() for random number sampling
         self.key = key
@@ -197,7 +197,7 @@ class ParticlePDF:
         n_eff = self.n_eff()
         if n_eff / self.n_particles < threshold:
             key, subkey = random.split(self.key)
-            self.resample(subkey)
+            self.particles, self.weights = self.resample(subkey)
             self.key = key
             self.just_resampled = True
         else:

@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import jit, vmap, random
+from jax import jit, vmap, random, lax
 
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
@@ -70,7 +70,25 @@ class AbstractBayesianModel(ParticlePDF):
         umap = jit(vmap(self.expected_utility,in_axes=(1,)))
         return umap(inputs)
     
+    @jit
+    def expected_utility_k_particles(self,oneinput,k):
+        # Compute a matrix of likelihoods for various output/parameter combinations. 
+        weights , inds = lax.top_k(self.weights,k)
+        particles = self.particles[:,inds]
+        ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,particles) # shape n_particles x n_outputs
+        # This gives the probability of measuring various outputs/parameters for a single input
+        us = self.multioutput_utility(particles, weights, ls)
+
+        return jnp.sum(jnp.dot(ls,us))
+    
+    @jit
+    def expected_utilities_k_particles(self,inputs,k):
+        umap = jit(vmap(self.expected_utility,in_axes=(1,None)))
+        return umap(inputs,k)
+    
     def sample_output(self,oneinput,oneparam):
+        # This can definitely be re-written to parallelize the computation of likelihoods up-front 
+        # but creating a synthetic dataset doesn't really need to be fast at the moment.
         ls = self.oneinput_multioutput_oneparam(oneinput,self.expected_outputs,oneparam)
         key, subkey = random.split(self.key)
         self.key = key
@@ -78,6 +96,8 @@ class AbstractBayesianModel(ParticlePDF):
         return output
     
     def sample_outputs(self, inputs, oneparam):
+        # This can definitely be re-written to parallelize the computation of likelihoods up-front 
+        # but creating a synthetic dataset doesn't really need to be fast at the moment.
         num_inputs = inputs.shape[1]
         return jnp.hstack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)])
         
