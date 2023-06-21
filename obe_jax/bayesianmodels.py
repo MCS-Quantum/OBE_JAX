@@ -22,7 +22,7 @@ class SimulatedModel(AbstractBayesianModel):
     
     """
     
-    def __init__(key, particles, weights, 
+    def __init__(self, key, particles, weights, 
                  precompute_function, 
                  simulation_likelihood, 
                  **kwargs):
