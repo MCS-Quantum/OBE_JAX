@@ -1,7 +1,18 @@
 
-# OBE_JAX is a JAX powered version of [OptBayesExpt](https://github.com/usnistgov/optbayesexpt)
+# OBE_JAX is a JAX powered Optimal Bayesian Experimental Design
 
-Please see the original repository and documentation. 
+This pacakge originated as a fork of [OptBayesExpt](https://github.com/usnistgov/optbayesexpt).
+
+Since the original fork, there have been breaking API changes, Class/Variable/Function name changes,
+and many other significant deviations from the original software. However, the base ParticlePDF class
+is very similar to the one implemented in OptBayesExpt.
+
+WARNINGS:
+
+Documentation is lacking but being added and breaking changes are likely. 
+
+The software has not been benchmarked thoroughly, either so use at your own risk. 
+
 
 ## Legal stuff from OptBayesExpt
 
