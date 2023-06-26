@@ -1,4 +1,5 @@
 from jax import random
+import jax.numpy as jnp
 
 def uniform_prior_particles(key, minimums, maximums, N):
     newkey, subkey = random.split(key)
