@@ -19,6 +19,10 @@ class SimulatedModel(AbstractBayesianModel):
     
     Both precompute_function and simulation_likelihood must be 
     `jax.jit`-able. 
+
+    precompute_function(oneinput_vec,oneparameter_vec)
+    simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
+
     
     """
     
