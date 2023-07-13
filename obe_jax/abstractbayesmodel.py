@@ -30,7 +30,7 @@ class AbstractBayesianModel(ParticlePDF):
         self.utility_measure = utility_measure
         self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
         self.expected_outputs = jnp.asarray(expected_outputs)
-        self.num_expected_outputs = expected_outputs.shape[1]
+        self.num_expected_outputs = 0 if not expected_outputs else expected_outputs.shape[1]
 
     @jit
     def updated_weights_from_experiment(self, oneinput, oneoutput):
