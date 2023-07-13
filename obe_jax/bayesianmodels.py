@@ -33,7 +33,7 @@ class SimulatedModel(AbstractBayesianModel):
         
         self.sim_lower_kwargs = kwargs
         self.precompute_function = precompute_function
-        self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1)))
+        self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1),out_axes=(-1)))
         self.simulation_likelihood = simulation_likelihood
         self.sim_likelihood_oneinput_oneoutput_multiparams = jit(vmap(simulation_likelihood,in_axes=(None,None,1,-1)))
         self.latest_precomputed_data = None
