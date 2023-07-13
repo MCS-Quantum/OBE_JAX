@@ -50,7 +50,7 @@ class SimulatedModel(AbstractBayesianModel):
     @jit
     def updated_weights_precomputes_from_experiment(self, oneinput, oneoutput):
         precomputes = self.precompute_oneinput_multiparams(oneinput,self.particles)
-        ls = self.oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles, precomputes)
+        ls = self.sim_likelihood_oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles, precomputes)
         weights = self.update_weights(ls)
         return weights, precomputes
         
