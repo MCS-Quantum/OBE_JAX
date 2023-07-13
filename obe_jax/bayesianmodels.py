@@ -28,7 +28,7 @@ class SimulatedModel(AbstractBayesianModel):
     
     def __init__(self, key, particles, weights, 
                  precompute_function, 
-                 simulation_likelihood, 
+                 simulation_likelihood,
                  **kwargs):
         
         self.precompute_function = precompute_function
@@ -90,7 +90,13 @@ class SimulatedModel(AbstractBayesianModel):
                     'precompute_oneinput_multiparams':self.precompute_oneinput_multiparams,
                     'simulation_likelihood':self.simulation_likelihood, 
                     'sim_likelihood_oneinput_oneoutput_multiparams':self.sim_likelihood_oneinput_oneoutput_multiparams,
-                    'latest_precomputed_data': self.latest_precomputed_data
+                    'latest_precomputed_data': self.latest_precomputed_data,
+                    'likelihood_function':self.likelihood_function, 
+                    'oneinput_oneoutput_multiparams':self.oneinput_oneoutput_multiparams,
+                    'oneinput_multioutput_multiparams':self.oneinput_multioutput_multiparams, 
+                    'utility_measure':self.utility_measure,
+                    'multioutput_utility': self.multioutput_utility,
+                    'expected_outputs':self.expected_outputs
                    }
         return (children, aux_data)
     
