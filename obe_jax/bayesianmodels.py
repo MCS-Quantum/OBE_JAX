@@ -1,7 +1,7 @@
 from jax import jit,vmap
 
 from .abstractbayesmodel import AbstractBayesianModel
-
+from .utility_measures import entropy_change
 
 class SimulatedModel(AbstractBayesianModel):
     """
@@ -31,6 +31,7 @@ class SimulatedModel(AbstractBayesianModel):
                  simulation_likelihood,
                  **kwargs):
         
+        self.lower_kwargs = kwargs
         self.precompute_function = precompute_function
         self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1)))
         self.simulation_likelihood = simulation_likelihood
@@ -41,8 +42,9 @@ class SimulatedModel(AbstractBayesianModel):
         def likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec):
             precompute_data = precompute_function(oneinput_vec,oneparameter_vec)
             return simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
-        
-        AbstractBayesianModel.__init__(self, key, particles, weights, likelihood_function=likelihood, **kwargs)
+                
+        AbstractBayesianModel.__init__(self, key, particles, weights, 
+                                       likelihood_function=likelihood,**kwargs)
         
         
     @jit
@@ -87,16 +89,7 @@ class SimulatedModel(AbstractBayesianModel):
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
         aux_data = {'precompute_function':self.precompute_function, 
-                    'precompute_oneinput_multiparams':self.precompute_oneinput_multiparams,
-                    'simulation_likelihood':self.simulation_likelihood, 
-                    'sim_likelihood_oneinput_oneoutput_multiparams':self.sim_likelihood_oneinput_oneoutput_multiparams,
-                    'latest_precomputed_data': self.latest_precomputed_data,
-                    'likelihood_function':self.likelihood_function, 
-                    'oneinput_oneoutput_multiparams':self.oneinput_oneoutput_multiparams,
-                    'oneinput_multioutput_multiparams':self.oneinput_multioutput_multiparams, 
-                    'utility_measure':self.utility_measure,
-                    'multioutput_utility': self.multioutput_utility,
-                    'expected_outputs':self.expected_outputs
+                    'simulation_likelihood':self.simulation_likelihood, **self.lower_kwargs
                    }
         return (children, aux_data)
     

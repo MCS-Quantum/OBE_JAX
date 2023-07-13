@@ -258,9 +258,7 @@ class ParticlePDF:
     
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
-        aux_data = {'n_particles':self.n_particles, 
-                    'resampler':self.resampler,
-                    'n_dims':self.n_dims, 
+        aux_data = {'resampler':self.resampler,
                     'tuning_parameters': self.tuning_parameters,
                     'resampling_parameters':self.resampling_parameters,
                     'just_resampled':self.just_resampled}  # static values

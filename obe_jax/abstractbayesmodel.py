@@ -20,7 +20,7 @@ class AbstractBayesianModel(ParticlePDF):
     def __init__(self, key, particles, weights, 
                  likelihood_function=None, expected_outputs=None, utility_measure=entropy_change,
                  **kwargs):
-        
+        self.lower_kwargs = kwargs
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
         self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
@@ -107,12 +107,9 @@ class AbstractBayesianModel(ParticlePDF):
         
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
-        aux_data = {'likelihood_function':self.likelihood_function, 
-                    'oneinput_oneoutput_multiparams':self.oneinput_oneoutput_multiparams,
-                    'oneinput_multioutput_multiparams':self.oneinput_multioutput_multiparams, 
+        aux_data = {'likelihood_function':self.likelihood_function,
                     'utility_measure':self.utility_measure,
-                    'multioutput_utility': self.multioutput_utility,
-                    'expected_outputs':self.expected_outputs}
+                    'expected_outputs':self.expected_outputs,**self.lower_kwargs}
         return (children, aux_data)
     
     @classmethod
