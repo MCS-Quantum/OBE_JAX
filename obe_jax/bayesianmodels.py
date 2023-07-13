@@ -31,7 +31,7 @@ class SimulatedModel(AbstractBayesianModel):
                  simulation_likelihood,
                  **kwargs):
         
-        self.lower_kwargs = kwargs
+        self.sim_lower_kwargs = kwargs
         self.precompute_function = precompute_function
         self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1)))
         self.simulation_likelihood = simulation_likelihood
@@ -42,7 +42,7 @@ class SimulatedModel(AbstractBayesianModel):
         def likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec):
             precompute_data = precompute_function(oneinput_vec,oneparameter_vec)
             return simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
-                
+        
         AbstractBayesianModel.__init__(self, key, particles, weights, 
                                        likelihood_function=likelihood,**kwargs)
         
@@ -89,7 +89,7 @@ class SimulatedModel(AbstractBayesianModel):
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
         aux_data = {'precompute_function':self.precompute_function, 
-                    'simulation_likelihood':self.simulation_likelihood, **self.lower_kwargs
+                    'simulation_likelihood':self.simulation_likelihood, **self.sim_lower_kwargs
                    }
         return (children, aux_data)
     
