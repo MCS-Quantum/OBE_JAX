@@ -99,7 +99,7 @@ class AbstractBayesianModel(ParticlePDF):
         ls = self.oneinput_multioutput_oneparam(oneinput,self.expected_outputs,oneparam)
         key, subkey = random.split(self.key)
         self.key = key
-        output = random.choice(subkey,self.expected_outputs,p=ls[:,0],axis=1)
+        output = random.choice(subkey,self.expected_outputs,p=ls,axis=1)
         return output
     
     def sample_outputs(self, inputs, oneparam):
