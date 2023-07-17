@@ -1,5 +1,6 @@
 import jax.numpy as jnp
-from jax import jit, vmap, random, lax, pmap
+from jax import jit, vmap, random, lax
+from jax.experimental import shard_map
 
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
@@ -8,7 +9,7 @@ import os
 
 if "PMAP_N_PROCS" in os.environ:
     os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count={}".format(os.environ["PMAP_N_PROCS"])
-    mapfunc = pmap
+    mapfunc = shard_map
 else:
     mapfunc = vmap
 

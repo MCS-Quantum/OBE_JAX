@@ -1,4 +1,6 @@
-from jax import jit, vmap, pmap
+from jax import jit, vmap
+from jax.experimental import shard_map
+
 
 from .abstractbayesmodel import AbstractBayesianModel
 
@@ -6,7 +8,7 @@ import os
 
 if "PMAP_N_PROCS" in os.environ:
     os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count={}".format(os.environ["PMAP_N_PROCS"])
-    mapfunc = pmap
+    mapfunc = shard_map
 else:
     mapfunc = vmap
 
