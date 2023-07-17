@@ -1,7 +1,15 @@
-from jax import jit,vmap
+from jax import jit, vmap, pmap
 
 from .abstractbayesmodel import AbstractBayesianModel
-from .utility_measures import entropy_change
+
+import os
+
+if "PMAP_N_PROCS" in os.environ:
+    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count={}".format(os.environ["PMAP_N_PROCS"])
+    mapfunc = pmap
+else:
+    mapfunc = vmap
+
 
 class SimulatedModel(AbstractBayesianModel):
     """
@@ -33,9 +41,9 @@ class SimulatedModel(AbstractBayesianModel):
         
         self.sim_lower_kwargs = kwargs
         self.precompute_function = precompute_function
-        self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1),out_axes=(-1)))
+        self.precompute_oneinput_multiparams = jit(mapfunc(precompute_function,in_axes=(None,1),out_axes=(-1)))
         self.simulation_likelihood = simulation_likelihood
-        self.sim_likelihood_oneinput_oneoutput_multiparams = jit(vmap(simulation_likelihood,in_axes=(None,None,1,-1)))
+        self.sim_likelihood_oneinput_oneoutput_multiparams = jit(mapfunc(simulation_likelihood,in_axes=(None,None,1,-1)))
         self.latest_precomputed_data = None
 
         @jit

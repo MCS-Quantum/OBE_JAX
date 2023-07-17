@@ -1,8 +1,17 @@
 import jax.numpy as jnp
-from jax import jit, vmap, random, lax
+from jax import jit, vmap, random, lax, pmap
 
 from obe_jax import ParticlePDF
 from obe_jax.utility_measures import entropy_change
+
+import os
+
+if "PMAP_N_PROCS" in os.environ:
+    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count={}".format(os.environ["PMAP_N_PROCS"])
+    mapfunc = pmap
+else:
+    mapfunc = vmap
+
 
 class AbstractBayesianModel(ParticlePDF):
     """An abstract Bayesian probabilistic model for a system with 
@@ -24,11 +33,11 @@ class AbstractBayesianModel(ParticlePDF):
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
         self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
-        self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
-        self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
-        self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
+        self.oneinput_multioutput_oneparam = jit(mapfunc(likelihood_function,in_axes=(None,1,None)))
+        self.oneinput_oneoutput_multiparams = jit(mapfunc(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
+        self.oneinput_multioutput_multiparams = jit(mapfunc(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
-        self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
+        self.multioutput_utility = jit(mapfunc(self.utility_measure,in_axes=(None,None,1)))
         self.expected_outputs = jnp.asarray(expected_outputs)
         try:
             self.num_expected_outputs = expected_outputs.shape[1]
@@ -69,7 +78,7 @@ class AbstractBayesianModel(ParticlePDF):
     
     @jit
     def _expected_utilities(self,inputs,particles,weights):
-        umap = jit(vmap(self._expected_utility,in_axes=(1,None,None)))
+        umap = jit(mapfunc(self._expected_utility,in_axes=(1,None,None)))
         return umap(inputs,particles,weights)
          
     @jit
@@ -79,7 +88,7 @@ class AbstractBayesianModel(ParticlePDF):
     
     @jit
     def expected_utilities(self,inputs):
-        umap = jit(vmap(self.expected_utility,in_axes=(1,)))
+        umap = jit(mapfunc(self.expected_utility,in_axes=(1,)))
         return umap(inputs)
 
     def expected_utility_k_particles(self,oneinput,k=10):
