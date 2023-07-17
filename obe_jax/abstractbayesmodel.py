@@ -18,11 +18,12 @@ class AbstractBayesianModel(ParticlePDF):
     """
 
     def __init__(self, key, particles, weights, 
-                 likelihood_function=None, expected_outputs=None, utility_measure=entropy_change,
+                 likelihood_function=None, utility_measure=entropy_change, expected_outputs=None, 
                  **kwargs):
         
         self.expected_outputs = jnp.asarray(expected_outputs).copy()
         self.lower_kwargs = kwargs
+        
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
         self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
