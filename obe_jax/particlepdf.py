@@ -73,7 +73,7 @@ class ParticlePDF:
         #: ``int``: the number of parameter samples representing the
         #: probability distribution. Determined from the trailing dimension
         #: of ``prior``.
-        self.n_particles = self.particles.shape[1 ]
+        self.n_particles = self.particles.shape[1]
 
         #: ``int``: The number of parameters, i.e. the dimensionality of
         #: parameter space. Determined from the leading dimension of ``prior``.

@@ -29,7 +29,7 @@ class AbstractBayesianModel(ParticlePDF):
         self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
         self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
-        self.expected_outputs = jnp.asarray(expected_outputs)
+        self.expected_outputs = jnp.asarray(expected_outputs).copy()
         try:
             self.num_expected_outputs = expected_outputs.shape[1]
         except:
@@ -112,7 +112,7 @@ class AbstractBayesianModel(ParticlePDF):
         children = (self.key, self.particles, self.weights)  # arrays / dynamic values
         aux_data = {'likelihood_function':self.likelihood_function,
                     'utility_measure':self.utility_measure,
-                    'expected_outputs':self.expected_outputs,**self.lower_kwargs}
+                    'expected_outputs':self.expected_outputs, **self.lower_kwargs}
         return (children, aux_data)
     
     @classmethod
