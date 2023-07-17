@@ -20,6 +20,8 @@ class AbstractBayesianModel(ParticlePDF):
     def __init__(self, key, particles, weights, 
                  likelihood_function=None, expected_outputs=None, utility_measure=entropy_change,
                  **kwargs):
+        
+        self.expected_outputs = jnp.asarray(expected_outputs).copy()
         self.lower_kwargs = kwargs
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
@@ -29,11 +31,6 @@ class AbstractBayesianModel(ParticlePDF):
         self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
         self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
-        self.expected_outputs = jnp.asarray(expected_outputs).copy()
-        try:
-            self.num_expected_outputs = expected_outputs.shape[1]
-        except:
-            self.num_expected_outputs = 0
 
     @jit
     def updated_weights_from_experiment(self, oneinput, oneoutput):
