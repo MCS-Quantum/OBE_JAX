@@ -64,11 +64,11 @@ class ParticlePDF:
         #: ``weights``,#: these ``n_particles`` points represent
         #: the parameter probability distribution. Initialized by the
         #: ``prior`` argument.
-        self.particles = jnp.asarray(particles).copy()
+        self.particles = particles
         
         #: ndarray of ``float64``: Array of probability weights
         #: corresponding to the particles.
-        self.weights = jnp.asarray(weights).copy()
+        self.weights = weights
         
         #: ``int``: the number of parameter samples representing the
         #: probability distribution. Determined from the trailing dimension
