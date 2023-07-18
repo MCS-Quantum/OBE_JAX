@@ -26,9 +26,9 @@ class SimulatedModel(AbstractBayesianModel):
     
     """
     
-    def __init__(self, key, particles, weights, 
-                 precompute_function, 
-                 simulation_likelihood,
+    def __init__(self, key, particles, weights, expected_outputs,
+                 precompute_function = None, 
+                 simulation_likelihood = None,
                  **kwargs):
         
         self.sim_lower_kwargs = kwargs
@@ -43,7 +43,7 @@ class SimulatedModel(AbstractBayesianModel):
             precompute_data = precompute_function(oneinput_vec,oneparameter_vec)
             return simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
         
-        AbstractBayesianModel.__init__(self, key, particles, weights, 
+        AbstractBayesianModel.__init__(self, key, particles, weights, expected_outputs,
                                        likelihood_function=likelihood,**kwargs)
         
         
@@ -87,7 +87,7 @@ class SimulatedModel(AbstractBayesianModel):
             self.resample_test()
 
     def _tree_flatten(self):
-        children = (self.key, self.particles, self.weights)  # arrays / dynamic values
+        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
         aux_data = {'precompute_function':self.precompute_function, 
                     'simulation_likelihood':self.simulation_likelihood, **self.sim_lower_kwargs
                    }

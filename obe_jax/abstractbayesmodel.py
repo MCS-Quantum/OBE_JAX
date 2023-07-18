@@ -17,16 +17,16 @@ class AbstractBayesianModel(ParticlePDF):
 
     """
 
-    def __init__(self, key, particles, weights, 
-                 likelihood_function=None, utility_measure=entropy_change, expected_outputs=None, 
+    def __init__(self, key, particles, weights, expected_outputs, likelihood_function=None,
+                 utility_measure = entropy_change, 
                  **kwargs):
         
-        self.expected_outputs = expected_outputs
         self.lower_kwargs = kwargs
         
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
         self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
+        self.expected_outputs = expected_outputs
         self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
         self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
         self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
@@ -107,10 +107,9 @@ class AbstractBayesianModel(ParticlePDF):
         return jnp.hstack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)])
         
     def _tree_flatten(self):
-        children = (self.key, self.particles, self.weights)  # arrays / dynamic values
+        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
         aux_data = {'likelihood_function':self.likelihood_function,
-                    'utility_measure':self.utility_measure,
-                    'expected_outputs':self.expected_outputs, **self.lower_kwargs}
+                    'utility_measure':self.utility_measure, **self.lower_kwargs}
         return (children, aux_data)
     
     @classmethod
