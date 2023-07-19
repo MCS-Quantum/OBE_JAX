@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import random, jit
-from obe_jax.samplers import sample, Liu_West_resampler
+from .samplers import sample, Liu_West_resampler
 
 
 class ParticlePDF:
