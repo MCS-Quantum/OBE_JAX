@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from functools import partial
 
 @partial(jit, static_argnames=['n'])
-def sample(key, particles, weights, n=1):
+def sample_inds(key, particles, weights, n=1):
     """Provides random samples from a particle distribution.
 
         Particles are selected randomly with probabilities given by
@@ -21,6 +21,26 @@ def sample(key, particles, weights, n=1):
     """
     num_particles = particles.shape[1]
     I = random.choice(key,num_particles,shape=(n,),p=weights)
+    return I
+
+
+@partial(jit, static_argnames=['n'])
+def sample_particles(key, particles, weights, n=1):
+    """Provides random samples from a particle distribution.
+
+        Particles are selected randomly with probabilities given by
+        ``weights``.
+
+        Args:
+            particles (`ndarray`): The location of particles
+            weights (`ndarray`): The probability weights
+            n_draws (:obj:`int`): the number of samples requested.  Default
+              ``1``.
+
+        Returns:
+            An ``n_dims`` x ``N_DRAWS`` :obj:`ndarray` of parameter draws.
+    """
+    I = sample_inds(key, particles, weights, n=n)
     return particles[:,I]
 
 @partial(jit, static_argnames=['a','scale'])
@@ -62,7 +82,7 @@ def Liu_West_resampler(key, particles, weights, a=0.98, scale=True):
     origin = jnp.zeros(ndim)
     # coords is n_dims x n_particles
     key1, key2 = random.split(key)
-    coords = sample(key1, particles, weights, n=num_particles).T
+    coords = sample_particles(key1, particles, weights, n=num_particles).T
     scaled_mean = jnp.average(particles, axis=1, weights=weights)* (1 - a)
     # newcovar is a small version of covar that determines the size of
     # the nudge.
