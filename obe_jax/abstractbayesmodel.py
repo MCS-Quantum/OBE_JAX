@@ -2,7 +2,6 @@ import jax.numpy as jnp
 from jax import jit, vmap, random, lax
 
 from .particlepdf import ParticlePDF
-from .samplers import sample
 from .utility_measures import entropy_change
 
 class AbstractBayesianModel(ParticlePDF):
