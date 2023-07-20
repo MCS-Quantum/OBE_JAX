@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import random, jit
-from .samplers import sample, Liu_West_resampler
+from .samplers import sample_particles, Liu_West_resampler
 
 
 class ParticlePDF:
@@ -253,7 +253,7 @@ class ParticlePDF:
         """
         key, subkey = random.split(self.key)
         self.key = key
-        return sample(subkey, self.particles, self.weights, n=n_draws)
+        return sample_particles(subkey, self.particles, self.weights, n=n_draws)
     
     
     def _tree_flatten(self):
