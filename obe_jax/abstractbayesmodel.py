@@ -17,7 +17,8 @@ class AbstractBayesianModel(ParticlePDF):
 
     """
 
-    def __init__(self, key, particles, weights, expected_outputs, likelihood_function=None,
+    def __init__(self, key, particles, weights, expected_outputs, likelihood_function=None, 
+                 multiparameter_likelihood_function=None,
                  utility_measure = entropy_change, 
                  **kwargs):
         
@@ -25,13 +26,30 @@ class AbstractBayesianModel(ParticlePDF):
         
         ParticlePDF.__init__(self, key, particles, weights, **kwargs)
 
-        self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
-        self.expected_outputs = expected_outputs
-        self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
-        self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)   
+
+        if likelihood_function:
+            self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
+            self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)
+            self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
+        elif multiparameter_likelihood_function:
+
+            def likelihood_function(oneinput,oneoutput,oneparam):
+                d = oneparam.shape[0]
+                params = oneparam.reshape((d,1))
+                ls = multiparameter_likelihood_function(oneinput,oneoutput,params)
+                return ls[0]
+            self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
+            self.oneinput_oneoutput_multiparams = multiparameter_likelihood_function
+            self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
+
+        else:
+            raise ValueError("No likelihood function provided")
+
+
         self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
         self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
+        self.expected_outputs = expected_outputs
 
     @jit
     def updated_weights_from_experiment(self, oneinput, oneoutput):
@@ -117,6 +135,7 @@ class AbstractBayesianModel(ParticlePDF):
     def _tree_flatten(self):
         children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
         aux_data = {'likelihood_function':self.likelihood_function,
+                    'multiparameter_likelihood_function':self.oneinput_oneoutput_multiparams,
                     'utility_measure':self.utility_measure, **self.lower_kwargs}
         return (children, aux_data)
     
