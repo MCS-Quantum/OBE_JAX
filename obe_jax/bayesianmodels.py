@@ -1,4 +1,4 @@
-from jax import jit,vmap
+from jax import vmap
 
 from .abstractbayesmodel import AbstractBayesianModel
 
@@ -17,7 +17,7 @@ class SimulatedModel(AbstractBayesianModel):
     The simulation_likelihood is a likelihood function that
     takes in input, output, parameters, and precomputed_array. 
     
-    Both precompute_function and simulation_likelihood must be 
+    Both precompute_function and simulation_likelihood should be 
     `jax.jit`-able. 
 
     precompute_function(oneinput_vec,oneparameter_vec)
@@ -28,20 +28,21 @@ class SimulatedModel(AbstractBayesianModel):
     
     def __init__(self, key, particles, weights, expected_outputs,
                  precompute_function = None, 
-                 simulation_likelihood = None,
                  multiparameter_precompute_function = None,
+                 simulation_likelihood = None,
                  **kwargs):
         
         self.sim_lower_kwargs = kwargs
         self.simulation_likelihood = simulation_likelihood
-        self.sim_likelihood_oneinput_oneoutput_multiparams = jit(vmap(simulation_likelihood,in_axes=(None,None,1,-1)))
+        self.sim_likelihood_oneinput_oneoutput_multiparams = vmap(simulation_likelihood,in_axes=(None,None,-1,-1))
+        self.sim_likelihood_oneinput_multioutput_multiparams = vmap(self.sim_likelihood_oneinput_oneoutput_multiparams,in_axes=(None,-1,None,None))
         self.latest_precomputed_data = None
 
         if precompute_function:
             self.precompute_function = precompute_function
-            self.precompute_oneinput_multiparams = jit(vmap(precompute_function,in_axes=(None,1),out_axes=(-1)))
+            self.precompute_oneinput_multiparams = vmap(precompute_function,in_axes=(None,1),out_axes=(-1))
 
-            @jit
+            
             def likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec):
                 precompute_data = precompute_function(oneinput_vec,oneparameter_vec)
                 return simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
@@ -60,26 +61,28 @@ class SimulatedModel(AbstractBayesianModel):
             self.precompute_function = precompute_function
             self.precompute_oneinput_multiparams = multiparameter_precompute_function
 
-            @jit
-            def multiparameter_likelihood_function(oneinput,oneoutput,multiparams):
+            
+            def multiparameter_multioutput_likelihood_function(oneinput,multioutputs,multiparams):
                 precomputes = multiparameter_precompute_function(oneinput,multiparams)
-                return self.sim_likelihood_oneinput_oneoutput_multiparams(oneinput,oneoutput,multiparams,precomputes)
+                
+                return self.sim_likelihood_oneinput_multioutput_multiparams(oneinput,multioutputs,multiparams,precomputes)
             
             AbstractBayesianModel.__init__(self, key, particles, weights, expected_outputs,
-                                        multiparameter_likelihood_function=multiparameter_likelihood_function,**kwargs)
+                                        multiparameter_multioutput_likelihood_function=multiparameter_multioutput_likelihood_function
+                                        ,**kwargs)
 
 
         else:
             raise ValueError("No precompute function provided")
         
-    @jit
+    
     def updated_weights_precomputes_from_experiment(self, oneinput, oneoutput):
         precomputes = self.precompute_oneinput_multiparams(oneinput,self.particles)
         ls = self.sim_likelihood_oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles, precomputes)
         weights = self.update_weights(ls)
         return weights, precomputes
         
-    @jit
+    
     def updated_weights_from_precompute(self, oneinput, oneoutput):
         ls = self.sim_likelihood_oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles, self.latest_precomputed_data)
         weights = self.update_weights(ls)
@@ -111,20 +114,20 @@ class SimulatedModel(AbstractBayesianModel):
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
 
-    def _tree_flatten(self):
-        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
-        aux_data = {'precompute_function':self.precompute_function, 
-                    'simulation_likelihood':self.simulation_likelihood,
-                    'multiparameter_precompute_function':self.precompute_oneinput_multiparams,
-                    **self.sim_lower_kwargs
-                   }
-        return (children, aux_data)
+#     def _tree_flatten(self):
+#         children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
+#         aux_data = {'precompute_function':self.precompute_function, 
+#                     'simulation_likelihood':self.simulation_likelihood,
+#                     'multiparameter_precompute_function':self.precompute_oneinput_multiparams,
+#                     **self.sim_lower_kwargs
+#                    }
+#         return (children, aux_data)
     
-    @classmethod
-    def _tree_unflatten(cls, aux_data, children):
-        return cls(*children,**aux_data)
+#     @classmethod
+#     def _tree_unflatten(cls, aux_data, children):
+#         return cls(*children,**aux_data)
     
-from jax import tree_util
-tree_util.register_pytree_node(SimulatedModel,
-                               SimulatedModel._tree_flatten,
-                               SimulatedModel._tree_unflatten)
+# from jax import tree_util
+# tree_util.register_pytree_node(SimulatedModel,
+#                                SimulatedModel._tree_flatten,
+#                                SimulatedModel._tree_unflatten)

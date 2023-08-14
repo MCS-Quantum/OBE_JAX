@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import jit, vmap, random, lax
+from jax import vmap, random
 
 from .particlepdf import ParticlePDF
 from .utility_measures import entropy_change
@@ -17,8 +17,10 @@ class AbstractBayesianModel(ParticlePDF):
 
     """
 
-    def __init__(self, key, particles, weights, expected_outputs, likelihood_function=None, 
+    def __init__(self, key, particles, weights, expected_outputs, 
+                 likelihood_function=None, 
                  multiparameter_likelihood_function=None,
+                 multiparameter_multioutput_likelihood_function=None,
                  utility_measure = entropy_change, 
                  **kwargs):
         
@@ -29,8 +31,11 @@ class AbstractBayesianModel(ParticlePDF):
 
         if likelihood_function:
             self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
-            self.oneinput_oneoutput_multiparams = jit(vmap(likelihood_function,in_axes=(None,None,1))) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)
-            self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
+            self.oneinput_oneoutput_multiparams = vmap(likelihood_function,in_axes=(None,None,1)) # takes (oneinput_vec, oneoutput_vec, multi_param_vec)
+            self.oneinput_multioutput_oneparam = vmap(likelihood_function,in_axes=(None,1,None))
+            self.oneinput_multioutput_multiparams = vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1)# takes (oneinput, multioutput, multiparameters)   
+
+
         elif multiparameter_likelihood_function:
 
             def likelihood_function(oneinput,oneoutput,oneparam):
@@ -38,20 +43,49 @@ class AbstractBayesianModel(ParticlePDF):
                 params = oneparam.reshape((d,1))
                 ls = multiparameter_likelihood_function(oneinput,oneoutput,params)
                 return ls[0]
+            
             self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
             self.oneinput_oneoutput_multiparams = multiparameter_likelihood_function
-            self.oneinput_multioutput_oneparam = jit(vmap(likelihood_function,in_axes=(None,1,None)))
+            self.oneinput_multioutput_oneparam = vmap(likelihood_function,in_axes=(None,1,None))
+            self.oneinput_multioutput_multiparams = vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1) # takes (oneinput, multioutput, multiparameters)   
+
+
+        elif multiparameter_multioutput_likelihood_function:
+
+            def likelihood_function(oneinput,oneoutput,oneparam):
+                d = oneparam.shape[0]
+                params = oneparam.reshape((d,1))
+                b = oneoutput.shape[0]
+                outputs = oneoutput.reshape((b,1))
+                ls = multiparameter_multioutput_likelihood_function(oneinput,outputs,params)
+                return ls[0,0]
+            
+            def oneinput_oneoutput_multiparams(oneinput,oneoutput,params):
+                b = oneoutput.shape[0]
+                outputs = oneoutput.reshape((b,1))
+                ls = multiparameter_multioutput_likelihood_function(oneinput,outputs,params)
+                return ls[0,:]
+            
+            def oneinput_multioutput_oneparam(oneinput,outputs,oneparam):
+                d = oneparam.shape[0]
+                params = oneparam.reshape((d,1))
+                ls = multiparameter_multioutput_likelihood_function(oneinput,outputs,params)
+                return ls[:,0]
+            
+            self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
+            self.oneinput_oneoutput_multiparams = oneinput_oneoutput_multiparams
+            self.oneinput_multioutput_oneparam = oneinput_multioutput_oneparam
+            self.oneinput_multioutput_multiparams = multiparameter_multioutput_likelihood_function
 
         else:
             raise ValueError("No likelihood function provided")
 
 
-        self.oneinput_multioutput_multiparams = jit(vmap(self.oneinput_oneoutput_multiparams,in_axes = (None,1,None), out_axes=1))# takes (oneinput, multioutput, multiparameters)   
         self.utility_measure = utility_measure
-        self.multioutput_utility = jit(vmap(self.utility_measure,in_axes=(None,None,1)))
+        self.multioutput_utility = vmap(self.utility_measure,in_axes=(None,None,0))
         self.expected_outputs = expected_outputs
 
-    @jit
+
     def updated_weights_from_experiment(self, oneinput, oneoutput):
         ls = self.oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles)
         weights = self.update_weights(ls)
@@ -74,29 +108,28 @@ class AbstractBayesianModel(ParticlePDF):
         
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
-    @jit
+    
     def _expected_utility(self,oneinput,particles,weights):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
         ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,particles) # shape n_particles x n_outputs
         # This gives the probability of measuring various outputs/parameters for a single input
         us = self.multioutput_utility(particles,weights,ls)
 
-        return jnp.sum(jnp.dot(ls,us))
+        return jnp.sum(jnp.dot(us,ls))
     
-    @jit
+    
     def _expected_utilities(self,inputs,particles,weights):
-        umap = jit(vmap(self._expected_utility,in_axes=(1,None,None)))
+        umap = vmap(self._expected_utility,in_axes=(1,None,None))
         return umap(inputs,particles,weights)
          
-    @jit
+    
     def expected_utility(self,oneinput):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
         return self._expected_utility(oneinput,self.particles,self.weights)
     
-    @jit
+    
     def expected_utilities(self,inputs):
-        umap = jit(vmap(self.expected_utility,in_axes=(1,)))
-        return umap(inputs)
+        return self._expected_utilities(inputs,self.particles,self.weights)
 
     def expected_utility_k_particles(self,oneinput,k=10):
         # Compute a matrix of likelihoods for various output/parameter combinations. 
@@ -132,18 +165,19 @@ class AbstractBayesianModel(ParticlePDF):
         num_inputs = inputs.shape[1]
         return jnp.hstack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)])
         
-    def _tree_flatten(self):
-        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
-        aux_data = {'likelihood_function':self.likelihood_function,
-                    'multiparameter_likelihood_function':self.oneinput_oneoutput_multiparams,
-                    'utility_measure':self.utility_measure, **self.lower_kwargs}
-        return (children, aux_data)
+    # def _tree_flatten(self):
+    #     children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
+    #     aux_data = {'likelihood_function':self.likelihood_function,
+    #                 'multiparameter_likelihood_function':self.oneinput_oneoutput_multiparams,
+    #                 'utility_measure':self.utility_measure, **self.lower_kwargs}
+    #     return (children, aux_data)
     
-    @classmethod
-    def _tree_unflatten(cls, aux_data, children):
-        return cls(*children,**aux_data)
+#     @classmethod
+#     def _tree_unflatten(cls, aux_data, children):
+#         return cls(*children,**aux_data)
     
-from jax import tree_util
-tree_util.register_pytree_node(AbstractBayesianModel,
-                               AbstractBayesianModel._tree_flatten,
-                               AbstractBayesianModel._tree_unflatten)
+# from jax import tree_util
+# tree_util.register_pytree_node(AbstractBayesianModel,
+#                                AbstractBayesianModel._tree_flatten,
+#                                AbstractBayesianModel._tree_unflatten)
+
