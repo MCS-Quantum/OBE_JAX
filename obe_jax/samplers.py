@@ -5,20 +5,29 @@ from functools import partial
 
 @partial(jit, static_argnames=['n'])
 def sample_inds(key, particles, weights, n=1):
-    """Provides random samples from a particle distribution.
-
-        Particles are selected randomly with probabilities given by
+    """Provides an integer index that produces random samples from a particle distribution.
+    
+        Particles are selected randomly with probabilities given by 
         ``weights``.
 
-        Args:
-            particles (`ndarray`): The location of particles
-            weights (`ndarray`): The probability weights
-            n_draws (:obj:`int`): the number of samples requested.  Default
-              ``1``.
+    Parameters
+    ----------
+    key : jax.random.PRNGKey
+        The pseudo-random number generator key used to seed all 
+        jax random functions.
+    particles : Array
+        The set of particles initializes to initialize the distribution.
+        Has size ``n_dims``x``n_particles``. 
+    weights : Array
+        The set of weights for each particle. Has size (``n_particles``,). 
+    n : int, optional
+        The number of indices to return, by default 1
 
-        Returns:
-            An ``n_dims`` x ``N_DRAWS`` :obj:`ndarray` of parameter draws.
-    """
+    Returns
+    -------
+    Vector, Int
+        Returns the indices of the particle to be sampled.
+    """    
     num_particles = particles.shape[1]
     I = random.choice(key,num_particles,shape=(n,),p=weights)
     return I
@@ -26,58 +35,61 @@ def sample_inds(key, particles, weights, n=1):
 
 @partial(jit, static_argnames=['n'])
 def sample_particles(key, particles, weights, n=1):
-    """Provides random samples from a particle distribution.
+    """Provides an new array of particles representing samples
+     from the particle distribution.
+    
+    Particles are selected randomly with probabilities given by 
+    ``weights``.
 
-        Particles are selected randomly with probabilities given by
-        ``weights``.
+    Parameters
+    ----------
+    key : jax.random.PRNGKey
+        The pseudo-random number generator key used to seed all 
+        jax random functions.
+    particles : Array
+        The set of particles initializes to initialize the distribution.
+        Has size ``n_dims``x``n_particles``. 
+    weights : Array
+        The set of weights for each particle. Has size (``n_particles``,). 
+    n : int, optional
+        The number of sampled particles to return, by default 1
 
-        Args:
-            particles (`ndarray`): The location of particles
-            weights (`ndarray`): The probability weights
-            n_draws (:obj:`int`): the number of samples requested.  Default
-              ``1``.
-
-        Returns:
-            An ``n_dims`` x ``N_DRAWS`` :obj:`ndarray` of parameter draws.
-    """
+    Returns
+    -------
+    Array
+        An array of particles. 
+    """    
     I = sample_inds(key, particles, weights, n=n)
     return particles[:,I]
 
 @partial(jit, static_argnames=['a','scale'])
 def Liu_West_resampler(key, particles, weights, a=0.98, scale=True):
-    """Resamples a particle distribution according to the Liu-West algorithm.
+    """Provides an new array of particles that have been
+    resampled according to the Liu-West algorithm.
 
-        Particles (``particles``) are selected randomly with probabilities given by
-        ``weights``.
+    Parameters
+    ----------
+    key : jax.random.PRNGKey
+        The pseudo-random number generator key used to seed all 
+        jax random functions.
+    particles : Array
+        The set of particles initializes to initialize the distribution.
+        Has size ``n_dims``x``n_particles``. 
+    weights : Array
+        The set of weights for each particle. Has size (``n_particles``,). 
+    a : Float, optional
+        Determines the spread of the newly sampled particles about the previous 
+        particle locations. 
+    scale : bool, optional
+        Determines whether or not the newly sampled distribution is 
+        contracted around the mean of the distribution to adjust for increased
+        variance during the resampling. 
 
-        Args:
-            particles (`ndarray`): The location of particles
-
-            weights (`ndarray`): The probability weights
-
-            a_param (`float`): In resampling, determines the scale of random
-            diffusion relative to the distribution covariance.  After
-            weighted sampling, some parameter values may have been
-            chosen multiple times. To make the new distribution smoother,
-            the parameters are given small 'nudges', random displacements
-            much smaller than the overall parameter distribution, but with
-            the same shape as the overall distribution.  More precisely,
-            the covariance of the nudge distribution is :code:`(1 -
-            a_param ** 2)` times the covariance of the parameter distribution.
-            Default ``0.98``.
-
-            scale (:obj:`bool`): determines whether resampling includes a
-            contraction of the parameter distribution toward the
-            distribution mean.  The idea of this contraction is to
-            compensate for the overall expansion of the distribution
-            that is a by-product of random displacements.  If true,
-            parameter samples (particles) move a fraction ``a_param`` of
-            the distance to the distribution mean.  Default is ``True``,
-            but ``False`` is recommended.
-
-        Returns:
-            new_particles (`ndarray`): The new set of particles
-    """
+    Returns
+    -------
+    Array
+        An array of particles. 
+    """    
     ndim, num_particles = particles.shape
     origin = jnp.zeros(ndim)
     # coords is n_dims x n_particles

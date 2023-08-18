@@ -4,58 +4,49 @@ from .samplers import sample_particles, Liu_West_resampler
 
 
 class ParticlePDF:
-    """A probability distribution function.
-
-    A probability distribution :math:`P(\\theta_0, \\theta_1, \\ldots,
-    \\theta_{n\_dims})` over parameter variables :math:`\\theta_i` is
-    represented by a large-ish number of samples from the distribution,
-    each with a weight value.  The distribution can be visualized as a cloud
-    of particles in parameter space, with each particle corresponding to a
-    weighted random draw from the distribution.  The methods implemented
-    here largely follow the algorithms published in Christopher E Granade et
-    al. 2012 *New J. Phys.* **14** 103013.
+    """
+    A probability distribution class defined by a finite set of 
+    discrete 'particles' in arbitrary dimensions. Each particle
+    has an associated weight corresponding with the probability.
+    This class has methods associated with the updating of the 
+    particle weights from likelihoods and observed data, sampling
+    from the distribution and 'resampling' the distribution. 
 
     Warnings:
-
         The number of samples (i.e. particles) required for good performance
         will depend on the application.  Too many samples will slow down the
         calculations, but too few samples can produce incorrect results.
-        With too few samples, the probability distribution can become overly
-        narrow, and it may not include the "true" parameter values. See the
-        ``resample()`` method documentation for details.
-
-    Arguments:
-        key (:obj:`jax.PRNGKey`):
-            The pseudo-random number generator key used to seed all 
-            random functions'
-
-        particles (:obj:`2D array-like`):
-            The Bayesian *prior*, which initializes the :obj:`ParticlePDF`
-            distribution. Each of ``n_dims`` sub-arrays contains
-            ``n_particles`` values of a single parameter, so that the *j*\
-            _th elements of the sub-arrays determine the coordinates of a
-            point in parameter space. Users are encouraged to experiment with
-            different ``n_particles`` sizes to assure consistent results.
-            
-        weights (:obj:`2D array-like`):
-            The Bayesian *prior*, which initializes the :obj:`ParticlePDF`
-            distribution. Each of ``n_dims`` sub-arrays contains
-            ``n_particles`` values of a single parameter, so that the *j*\
-            _th elements of the sub-arrays determine the coordinates of a
-            point in parameter space. Users are encouraged to experiment with
-            different ``n_particles`` sizes to assure consistent results.
-
-    Keyword Args:
-
-        TBD
-
-    **Attributes:**
     """
 
-    def __init__(self, key, particles, weights, resampler=Liu_West_resampler,
+    def __init__(self, particles, weights, 
+                 resampler=Liu_West_resampler,
                  tuning_parameters = {'resample_threshold':0.5,'auto_resample':True},
                  resampling_parameters = {'a':0.98, 'scale':True}, 
                  just_resampled=False, **kwargs):
+        """Initialize a ParticlePDF object. 
+
+        Parameters
+        ----------
+        key : jax.random.PRNGKey
+            The pseudo-random number generator key used to seed all 
+            jax random functions.
+        particles : Array
+            The set of particles initializes to initialize the distribution.
+            Has size ``n_dims``x``n_particles``. 
+        weights : Array
+            The set of weights for each particle. Has size (``n_particles``,). 
+        resampler : Function, optional
+            A function that resamples the ParticlePDF, by default Liu_West_resampler.
+        tuning_parameters : dict, optional
+            The parameters that determine how the ParticlePDF updates
+            with new data, by default
+            {'resample_threshold':0.5,'auto_resample':True}.
+        resampling_parameters : dict, optional
+            The parameters passed to the resampler function, by default
+            {'a':0.98, 'scale':True}.
+        just_resampled : bool, optional
+            Specifies if the PDF has been recently resampled, by default False.
+        """        
         
         # The jax.random.PRNGkey() for random number sampling
         self.key = key
@@ -101,22 +92,22 @@ class ParticlePDF:
     def mean(self):
         """Calculates the mean of the probability distribution.
 
-        The weighted mean of the parameter distribution. See also
-        :obj:`std()` and :obj:`covariance()`.
-
-        Returns:
-            Size ``n_dims`` array.
-        """
+        Returns
+        -------
+        Float
+            The weighted mean of the parameter distribution.
+        """        
         return jnp.average(self.particles, axis=1,
                           weights=self.weights)
     @jit
     def covariance(self):
-        """Calculates the covariance of the probability distribution.
+        """Calculates the covariance matrix of the probability distribution.
 
-        Returns:
+        Returns
+        -------
+        Array
             The covariance of the parameter distribution as an
-            ``n_dims`` X ``n_dims`` array. See also :obj:`mean()` and
-            :obj:`std()`.
+            ``n_dims`` X ``n_dims`` array.
         """
         n_dims = self.particles.shape[0]
         raw_covariance = jnp.cov(self.particles, aweights=self.weights)
@@ -144,54 +135,57 @@ class ParticlePDF:
 
 
     @jit
-    def update_weights(self, likelihood):
-        """Performs a Bayesian update on the probability distribution.
+    def update_weights(self, likelihoods):
+        """Performs a update on the probability distribution weights
+        based on Baye's rule and normalizes the new weights.
 
-        Multiplies ``weights`` by the ``likelihood`` and
-        renormalizes the probability
-        distribution.  After the update, the distribution is tested for
-        resampling depending on
-        ``self.tuning_parameters['auto_resample']``.
+        Parameters
+        ----------
+        likelihoods : Array
+            An array of likelihoods for each particle. 
 
-        Args:
-            likelihood: (:obj:`ndarray`):  An ``n_samples`` sized array
-                describing the Bayesian likelihood of a measurement result
-                calculated for each parameter combination.
-         """
-        weights = (likelihood*self.weights)
+        Returns
+        -------
+        Array
+            The new normalized weights. 
+        """
+        weights = (likelihoods*self.weights)
         return weights/jnp.sum(weights)
         
 
-    def bayesian_update(self, likelihood):
-        """Performs a Bayesian update on the probability distribution.
+    def bayesian_update(self, likelihoods):
+        """Updates the ParticlePDF weights with a Bayesian update 
+        and performs resampling if needed.
 
-        Multiplies ``weights`` by the ``likelihood`` and
-        renormalizes the probability
-        distribution.  After the update, the distribution is tested for
-        resampling depending on
-        ``self.tuning_parameters['auto_resample']``.
+        Parameters
+        ----------
+        likelihoods : Array
+            An array of likelihoods for each particle. 
 
-        Args:
-            likelihood: (:obj:`ndarray`):  An ``n_samples`` sized array
-                describing the Bayesian likelihood of a measurement result
-                calculated for each parameter combination.
          """
-        self.weights = self.update_weights(likelihood)
+        self.weights = self.update_weights(likelihoods)
         
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
     
     @jit
     def n_eff(self):
+        """Calculates the number of effective particles.
+
+        Returns
+        -------
+        Float
+            The number of `effective` particles. 
+        """        
         wsquared = jnp.square(self.weights)
         return 1 / jnp.sum(wsquared)
     
-    def resample_test(self):
+    def resample_test(self):        
         """Tests the distribution and performs a resampling if required.
 
         If the effective number of particles falls below
         ``self.tuning_parameters['resample_threshold'] * n_particles``,
-        performs a resampling.  Sets the ``just_resampled`` flag.
+        performs a resampling.  Sets ``just_resampled`` to ``True``.
         """
         threshold = self.tuning_parameters['resample_threshold']
         n_eff = self.n_eff()
@@ -206,31 +200,24 @@ class ParticlePDF:
     @jit
     def resample(self,key):
         """Performs a resampling of the distribution as specified by 
-        and self.resampler and self.resampler_params.
+        self.resampler and self.resampler_params.
 
-        Resampling refreshes the random draws that represent the probability
-        distribution.  As Bayesian updates are made, the weights of
-        low-probability particles can become very small.  These particles
-        consume memory and computation time, and they contribute little to
-        values that are determined from the distribution.  Resampling
-        abandons some low-probability particles while allowing
-        high-probability particles to multiply in higher-probability regions.
+        Resampling provides numerical stability to Sequential Monte Carlo
+        methods based on Bayseian updates and particle filters.
 
-        *Sample impoverishment* can occur if there are too few particles. In
-        this phenomenon, a resampling step fails to sample particles from an
-        important, but low-probability region, effectively removing that
-        region from future consideration. The symptoms of this ``sample
-        impoverishment`` phenomenon include:
+        As updates to the distribution are made some particles develop very
+        low weights because they are highly unlikely. Resampling draws new
+        particles to ensure that regions of high probability parameter space 
+        are effectively populated throughout the learning process. 
 
-            - Inconsistent results from repeated runs.  Standard deviations
-              from individual final distributions will be too small to
-              explain the spread of individual mean values.
-
-            - Sudden changes in the standard deviations or other measures of
-              the distribution on resampling. The resampling is not
-              *supposed* to change the distribution, just refresh its
-              representation.
-        """
+        Returns
+        -------
+        Array
+            Newly sample particles
+        
+        Array
+            New particle weights
+        """        
 
         # Call the resampler function to get a new set of particles
         new_particles = self.resampler(key, self.particles, self.weights, **self.resampling_parameters)
@@ -244,12 +231,15 @@ class ParticlePDF:
         Particles are selected randomly with probabilities given by
         ``self.weights``.
 
-        Args:
-            n_draws (:obj:`int`): the number of draws requested.  Default
-              ``1``.
+        Parameters
+        ----------
+        n_draws : int, optional
+            The number of draws requested, by default 1
 
-        Returns:
-            An ``n_dims`` x ``N_DRAWS`` :obj:`ndarray` of parameter draws.
+        Returns
+        -------
+        Array
+            ``n_dims`` x ``n_draws`` array of particles. 
         """
         key, subkey = random.split(self.key)
         self.key = key

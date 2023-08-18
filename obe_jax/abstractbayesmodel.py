@@ -6,7 +6,7 @@ from .utility_measures import entropy_change
 
 class AbstractBayesianModel(ParticlePDF):
     """An abstract Bayesian probabilistic model for a system with 
-    unknown parameters. This class defines a Bayesian model for a 
+    unknown parameters. This class defines a PraticlePDF model for a 
     system with oututs predictable from a likelihood function
     that is paramaterized by a set of underlying parameters 
     which are inteded to be estimated. 
@@ -23,6 +23,49 @@ class AbstractBayesianModel(ParticlePDF):
                  multiparameter_multioutput_likelihood_function=None,
                  utility_measure = entropy_change, 
                  **kwargs):
+        """Initialize an AbstractBayesianModel object.
+
+        There are three possible ways to define the likelihood function
+        depending on the degree of parallelization you intend to utilize.
+
+        If a single non-parallelized likelihood function is given
+        vectorization with be performed with jax.vmap. 
+
+        Parameters
+        ----------
+        key : jax.random.PRNGKey
+            The pseudo-random number generator key used to seed all 
+            jax random functions.
+        particles : Array
+            The set of particles initializes to initialize the distribution.
+            Has size ``n_dims``x``n_particles``. 
+        weights : Array
+            The set of weights for each particle. Has size (``n_particles``,). 
+        expected_outputs : Array
+            A set of possible outputs which may be observed. 
+        likelihood_function : Function, optional
+            A function that computes likelihoods with the signature
+            ``F(oneinput_vector, oneparameter_vector, oneoutput_vector)```
+            , by default None
+        multiparameter_likelihood_function : Function, optional
+            A function that computes likelihoods for multiple parameters with the signature
+            ``F(oneinput_vector, multiple_parameter_vectors, oneoutput_vector)```
+            , by default None
+        multiparameter_multioutput_likelihood_function : Function, optional
+            A function that computes likelihoods for multiple parameters 
+            and multiple outputs with the signature
+            ``F(oneinput_vector, multiple_parameter_vectors, multiple_output_vectors)```
+            , by default None
+        utility_measure : Function, optional
+            A measure of experimental utility with the signature
+             ``U(current_particles,current_weights,likelihoods)``, by default entropy_change
+
+        Raises
+        ------
+        ValueError
+            Raises ValueError if no likelihood function is provided via 
+            one of the three defined arguments.
+        """        
         
         self.lower_kwargs = kwargs
         
@@ -87,29 +130,63 @@ class AbstractBayesianModel(ParticlePDF):
 
 
     def updated_weights_from_experiment(self, oneinput, oneoutput):
+        """Updates the particle weights of the AbstractBayesianModel
+        for a single experimental run.
+
+        Parameters
+        ----------
+        oneinput : Vector
+            A vector of specified process inputs
+        oneoutput : Vector
+            A vector of observed process outputs
+
+        Returns
+        -------
+        Vector
+            The new, normalized particle weights.
+        """        
         ls = self.oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles)
         weights = self.update_weights(ls)
         return weights
     
     def bayesian_update(self, oneinput, oneoutput):
         """
-        Refines the parameters' probability distribution function given a
-        measurement result.
-
-        This is where measurement results are entered. An implementation of
-        Bayesian inference, uses the model to calculate the likelihood of
-        obtaining the measurement result as a function of
-        parameter values, and uses that likelihood to generate a refined
-        *posterior* (after-measurement) distribution from the *prior* (
-        pre-measurement) parameter distribution.
-
+        Refines the parameter probability distribution function given an
+        experimental input and output, resamples if needed, and updates
+        the AbstractBayesianModel.
         """
         self.weights = self.updated_weights_from_experiment(oneinput, oneoutput)
         
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
+
+    def multiple_bayesian_updates(self, inputset, outputset):
+        """
+        Refines the parameter probability distribution function given a set of
+        experimental inputs and outputs, resamples if needed, and updates
+        the AbstractBayesianModel.
+        """
+        for i,o in zip(inputset,outputset):
+            self.bayesian_update(i,o)
     
     def _expected_utility(self,oneinput,particles,weights):
+        """Computes the expected value of utility of a single input based on a
+        set of particles, weights, and utility measure. 
+
+        Parameters
+        ----------
+        oneinput : Vector
+            A single vector of inputs
+        particles : Array
+            An Array of particles over which to the expectation value will be taken
+        weights : Vector
+            A vector of particles specifying the weights of each particle. 
+
+        Returns
+        -------
+        Float
+            The expected utility of the input.
+        """        
         # Compute a matrix of likelihoods for various output/parameter combinations. 
         ls = self.oneinput_multioutput_multiparams(oneinput,self.expected_outputs,particles) # shape n_particles x n_outputs
         # This gives the probability of measuring various outputs/parameters for a single input
@@ -119,19 +196,77 @@ class AbstractBayesianModel(ParticlePDF):
     
     
     def _expected_utilities(self,inputs,particles,weights):
+        """Computes the expected value of utility of multiple inputs based on a set of
+        particles, weights, and utility measure. 
+
+        Parameters
+        ----------
+        inputs : Array
+            An Array of inputs. 
+        particles : Array
+            An Array of particles over which to the expectation value will be taken
+        weights : Vector
+            A vector of particles specifying the weights of each particle. 
+
+        Returns
+        -------
+        Vector
+            The expected utility of each input.
+        """        
         umap = vmap(self._expected_utility,in_axes=(1,None,None))
         return umap(inputs,particles,weights)
          
     
     def expected_utility(self,oneinput):
+        """Computes the expected value of utility of a single input based on the object's
+        current particles, weights, and utility measure. 
+
+        Parameters
+        ----------
+        oneinput : Vector
+            A single vector of inputs
+
+        Returns
+        -------
+        Float
+            The expected utility of the input.
+        """        
         # Compute a matrix of likelihoods for various output/parameter combinations. 
         return self._expected_utility(oneinput,self.particles,self.weights)
     
     
     def expected_utilities(self,inputs):
+        """Computes the expected value of utility of multiple inputs based the
+        objects current particles, weights, and utility measure. 
+
+        Parameters
+        ----------
+        inputs : Array
+            An Array of inputs. 
+
+        Returns
+        -------
+        Vector
+            The expected utility of each input.
+        """        
         return self._expected_utilities(inputs,self.particles,self.weights)
 
     def expected_utility_k_particles(self,oneinput,k=10):
+        """Computes the expected value of utility of a single input using
+         only the ``k`` particles with the largest weights. 
+
+        Parameters
+        ----------
+        oneinput : Vector
+            A single vector of inputs
+        k : Int, optional
+            A number of particles to use in the computation of the utility.
+
+        Returns
+        -------
+        Float
+            The expected utility of the input.
+        """        
         # Compute a matrix of likelihoods for various output/parameter combinations. 
         key, subkey = random.split(self.key)
         self.key = key
@@ -142,6 +277,21 @@ class AbstractBayesianModel(ParticlePDF):
         return self._expected_utility(oneinput,particles,weights)
     
     def expected_utilities_k_particles(self,inputs,k=10):
+        """Computes the expected value of utility of multiple inputs using
+         only the ``k`` particles with the largest weights. 
+
+        Parameters
+        ----------
+        inputs : Array
+            An array of possible inputs.
+        k : Int, optional
+            A number of particles to use in the computation of the utility.
+
+        Returns
+        -------
+        Float
+            The expected utility of the input.
+        """        
         key, subkey = random.split(self.key)
         self.key = key
         num_particles = self.particles.shape[1]
@@ -151,6 +301,23 @@ class AbstractBayesianModel(ParticlePDF):
         return self._expected_utilities(inputs,particles,weights)
     
     def sample_output(self,oneinput,oneparam):
+        """Samples from expected outputs of a process
+        with oneinput and oneparameter.
+
+        Useful for generating a synthetic datum. 
+
+        Parameters
+        ----------
+        oneinput : Vector
+            A single input vector. 
+        oneparam : Vector
+            A single parameter vector. 
+
+        Returns
+        -------
+        Vector
+            A single vector of outputs sampled with the defined likelihood.  
+        """        
         # This can definitely be re-written to parallelize the computation of likelihoods up-front 
         # but creating a synthetic dataset doesn't really need to be fast at the moment.
         ls = self.oneinput_multioutput_oneparam(oneinput,self.expected_outputs,oneparam)
@@ -160,6 +327,23 @@ class AbstractBayesianModel(ParticlePDF):
         return output
     
     def sample_outputs(self, inputs, oneparam):
+        """Samples from expected outputs of a process
+        with multiple inputs and oneparameter.
+
+        Useful for generating synthetic data. 
+
+        Parameters
+        ----------
+        inputs : Array
+            An array of input vectors. 
+        oneparam : Vector
+            A single parameter vector. 
+
+        Returns
+        -------
+        Array
+            An array of vectors of outputs sampled with the defined likelihood.  
+        """        
         # This can definitely be re-written to parallelize the computation of likelihoods up-front 
         # but creating a synthetic dataset doesn't really need to be fast at the moment.
         num_inputs = inputs.shape[1]
