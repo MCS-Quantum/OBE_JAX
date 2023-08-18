@@ -18,7 +18,7 @@ class ParticlePDF:
         calculations, but too few samples can produce incorrect results.
     """
 
-    def __init__(self, particles, weights, 
+    def __init__(self, key, particles, weights, 
                  resampler=Liu_West_resampler,
                  tuning_parameters = {'resample_threshold':0.5,'auto_resample':True},
                  resampling_parameters = {'a':0.98, 'scale':True}, 
