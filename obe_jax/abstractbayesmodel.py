@@ -347,7 +347,7 @@ class AbstractBayesianModel(ParticlePDF):
         # This can definitely be re-written to parallelize the computation of likelihoods up-front 
         # but creating a synthetic dataset doesn't really need to be fast at the moment.
         num_inputs = inputs.shape[1]
-        return jnp.hstack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)])
+        return jnp.stack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)],axis=1)
         
     # def _tree_flatten(self):
     #     children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values

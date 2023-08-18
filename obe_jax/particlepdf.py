@@ -51,41 +51,20 @@ class ParticlePDF:
         # The jax.random.PRNGkey() for random number sampling
         self.key = key
         
-        #: ``n_dims x n_particles ndarray`` of ``float64``: Together with
-        #: ``weights``,#: these ``n_particles`` points represent
-        #: the parameter probability distribution. Initialized by the
-        #: ``prior`` argument.
         self.particles = particles
         
-        #: ndarray of ``float64``: Array of probability weights
-        #: corresponding to the particles.
+
         self.weights = weights
         
-        #: ``int``: the number of parameter samples representing the
-        #: probability distribution. Determined from the trailing dimension
-        #: of ``prior``.
         self.n_particles = self.particles.shape[1]
 
-        #: ``int``: The number of parameters, i.e. the dimensionality of
-        #: parameter space. Determined from the leading dimension of ``prior``.
         self.n_dims = self.particles.shape[0]
         
         self.resampler=resampler
 
-        #: dict: A package of parameters affecting the resampling algorithm
-        #:
-        #:     - ``'resample_threshold'`` (:obj:`float`):  Initially,
-        #:       the value of the ``resample_threshold`` keyword argument.
-        #:       Default ``0.5``.
-        #:
-        #:     - ``'auto_resample'`` (:obj:`bool`): Initially, the value of the
-        #:       ``auto_resample`` keyword argument. Default ``True``.
         self.tuning_parameters = tuning_parameters
         self.resampling_parameters = resampling_parameters
 
-        #: ``bool``: A flag set by the ``resample_test()`` function. ``True`` if
-        #: the last ``bayesian_update()`` resulted in resampling,
-        #: else ``False``.
         self.just_resampled = just_resampled
 
     @jit
@@ -115,24 +94,6 @@ class ParticlePDF:
             return raw_covariance.reshape((1, 1))
         else:
             return raw_covariance
-        
-#     def std(self):
-#         """Calculates the standard deviation of the distribution.
-
-#         Calculates the square root of the diagonal elements of the
-#         covariance matrix.  See also :obj:`covariance()` and :obj:`mean()`.
-
-#         Returns:
-#             The standard deviation as an n_dims array.
-#         """
-#         n_dims = self.particles.shape[0]
-#         var = jnp.zeros(n_dims)
-#         for i, p in enumerate(self.particles):
-#             mean = np.dot(p, self.weights)
-#             msq = np.dot(p*p, self.weights)
-#             var[i] = msq - mean ** 2
-#         return np.sqrt(var)
-
 
     @jit
     def update_weights(self, likelihoods):
@@ -257,8 +218,6 @@ class ParticlePDF:
     @classmethod
     def _tree_unflatten(cls, aux_data, children):
         return cls(*children,**aux_data)
-
-# end ParticlePDF definition
 
 
 from jax import tree_util
