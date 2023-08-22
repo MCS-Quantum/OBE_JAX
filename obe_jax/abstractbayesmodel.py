@@ -11,9 +11,9 @@ class AbstractBayesianModel(ParticlePDF):
     that is paramaterized by a set of underlying parameters 
     which are inteded to be estimated. 
 
-   This abstract class implements the basic methods needed to 
-   sequentially update the probabilistic model from new measurements
-   and compute utilities of future experimental inputs.
+    This abstract class implements the basic methods needed to 
+    sequentially update the probabilistic model from new measurements
+    and compute utilities of future experimental inputs.
 
     """
 
@@ -125,7 +125,7 @@ class AbstractBayesianModel(ParticlePDF):
 
 
         self.utility_measure = utility_measure
-        self.multioutput_utility = vmap(self.utility_measure,in_axes=(None,None,0))
+        self.multioutput_utility = vmap(self.utility_measure,in_axes=(None,None,-1))
         self.expected_outputs = expected_outputs
 
 
@@ -146,6 +146,8 @@ class AbstractBayesianModel(ParticlePDF):
             The new, normalized particle weights.
         """        
         ls = self.oneinput_oneoutput_multiparams(oneinput, oneoutput, self.particles)
+        if jnp.any(jnp.isnan(ls)):
+            raise ValueError("NaNs detected in likelihood calculation")
         weights = self.update_weights(ls)
         return weights
     
@@ -160,15 +162,16 @@ class AbstractBayesianModel(ParticlePDF):
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
 
-    def multiple_bayesian_updates(self, inputset, outputset):
+    def batch_bayesian_update(self, inputset, outputset):
         """
         Refines the parameter probability distribution function given a set of
-        experimental inputs and outputs, resamples if needed, and updates
+        experimental inputs and outputs, resamples as needed, and updates
         the AbstractBayesianModel.
         """
-        for i,o in zip(inputset,outputset):
-            self.bayesian_update(i,o)
-    
+        n = inputset.shape[-1]
+        for i in range(n):
+            self.bayesian_update(inputset[:,i],outputset[:,i])
+      
     def _expected_utility(self,oneinput,particles,weights):
         """Computes the expected value of utility of a single input based on a
         set of particles, weights, and utility measure. 
@@ -192,7 +195,7 @@ class AbstractBayesianModel(ParticlePDF):
         # This gives the probability of measuring various outputs/parameters for a single input
         us = self.multioutput_utility(particles,weights,ls)
 
-        return jnp.sum(jnp.dot(us,ls))
+        return jnp.sum(jnp.dot(ls,us))
     
     
     def _expected_utilities(self,inputs,particles,weights):
@@ -349,19 +352,20 @@ class AbstractBayesianModel(ParticlePDF):
         num_inputs = inputs.shape[1]
         return jnp.stack([self.sample_output(inputs[:,i],oneparam) for i in range(num_inputs)],axis=1)
         
-    # def _tree_flatten(self):
-    #     children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
-    #     aux_data = {'likelihood_function':self.likelihood_function,
-    #                 'multiparameter_likelihood_function':self.oneinput_oneoutput_multiparams,
-    #                 'utility_measure':self.utility_measure, **self.lower_kwargs}
-    #     return (children, aux_data)
+    def _tree_flatten(self):
+        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
+        aux_data = {'likelihood_function':self.likelihood_function,
+                    'multiparameter_likelihood_function':self.oneinput_oneoutput_multiparams,
+                    'multiparameter_multioutput_likelihood_function':self.oneinput_multioutput_multiparams,
+                    'utility_measure':self.utility_measure, **self.lower_kwargs}
+        return (children, aux_data)
     
-#     @classmethod
-#     def _tree_unflatten(cls, aux_data, children):
-#         return cls(*children,**aux_data)
+    @classmethod
+    def _tree_unflatten(cls, aux_data, children):
+        return cls(*children,**aux_data)
     
-# from jax import tree_util
-# tree_util.register_pytree_node(AbstractBayesianModel,
-#                                AbstractBayesianModel._tree_flatten,
-#                                AbstractBayesianModel._tree_unflatten)
+from jax import tree_util
+tree_util.register_pytree_node(AbstractBayesianModel,
+                               AbstractBayesianModel._tree_flatten,
+                               AbstractBayesianModel._tree_unflatten)
 

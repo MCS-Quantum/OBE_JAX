@@ -16,11 +16,10 @@ class SimulatedModel(AbstractBayesianModel):
     in a computationally inexpensive manner.
     
     The simulation_likelihood is a likelihood function that
-    takes in input, output, parameters, and precomputed_array.
+    takes in input, output, parameters, and a precomputed_array.
 
-    precompute_function(oneinput_vec,oneparameter_vec)
-    simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data)
-
+    precompute_function(oneinput_vec,oneparameter_vec) --> precompute_data
+    simulation_likelihood(oneinput_vec,oneoutput_vec,oneparameter_vec,precompute_data) --> likelihood
     
     """
     
@@ -68,7 +67,7 @@ class SimulatedModel(AbstractBayesianModel):
             An error is raised if no precompute function is passed. 
         """        
         
-        self.sim_lower_kwargs = kwargs
+        self.lower_kwargs = kwargs
         self.simulation_likelihood = simulation_likelihood
         self.sim_likelihood_oneinput_oneoutput_multiparams = vmap(simulation_likelihood,in_axes=(None,None,-1,-1))
         self.sim_likelihood_oneinput_multioutput_multiparams = vmap(self.sim_likelihood_oneinput_oneoutput_multiparams,in_axes=(None,-1,None,None))
@@ -179,20 +178,20 @@ class SimulatedModel(AbstractBayesianModel):
         if self.tuning_parameters['auto_resample']:
             self.resample_test()
 
-#     def _tree_flatten(self):
-#         children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
-#         aux_data = {'precompute_function':self.precompute_function, 
-#                     'simulation_likelihood':self.simulation_likelihood,
-#                     'multiparameter_precompute_function':self.precompute_oneinput_multiparams,
-#                     **self.sim_lower_kwargs
-#                    }
-#         return (children, aux_data)
+    def _tree_flatten(self):
+        children = (self.key, self.particles, self.weights, self.expected_outputs)  # arrays / dynamic values
+        aux_data = {'precompute_function':self.precompute_function, 
+                    'simulation_likelihood':self.simulation_likelihood,
+                    'multiparameter_precompute_function':self.precompute_oneinput_multiparams,
+                    **self.lower_kwargs
+                   }
+        return (children, aux_data)
     
-#     @classmethod
-#     def _tree_unflatten(cls, aux_data, children):
-#         return cls(*children,**aux_data)
+    @classmethod
+    def _tree_unflatten(cls, aux_data, children):
+        return cls(*children,**aux_data)
     
-# from jax import tree_util
-# tree_util.register_pytree_node(SimulatedModel,
-#                                SimulatedModel._tree_flatten,
-#                                SimulatedModel._tree_unflatten)
+from jax import tree_util
+tree_util.register_pytree_node(SimulatedModel,
+                               SimulatedModel._tree_flatten,
+                               SimulatedModel._tree_unflatten)

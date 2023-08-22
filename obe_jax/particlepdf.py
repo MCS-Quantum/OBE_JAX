@@ -52,7 +52,6 @@ class ParticlePDF:
         self.key = key
         
         self.particles = particles
-        
 
         self.weights = weights
         
