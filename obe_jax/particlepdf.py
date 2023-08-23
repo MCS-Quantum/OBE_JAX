@@ -19,7 +19,7 @@ class ParticlePDF:
     """
 
     def __init__(self, key, particles, weights, 
-                 resampler=Liu_West_resampler,
+                 resampler = Liu_West_resampler,
                  tuning_parameters = {'resample_threshold':0.5,'auto_resample':True},
                  resampling_parameters = {'a':0.98, 'scale':True}, 
                  just_resampled=False, **kwargs):
