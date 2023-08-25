@@ -30,8 +30,8 @@ setup(name=name,
       setup_requires=['pytest-runner'],
       tests_require=['pytest'],
       keywords='bayesian measurement physics experimental design',
-      url=url,
-      author=author,
-      author_email=author_email,
+      url="https://github.com/MCS-Quantum/OBE_JAX",
+      author="Paul Kairys",
+      author_email="pkairys@anl.gov",
       packages=find_packages()
       )
