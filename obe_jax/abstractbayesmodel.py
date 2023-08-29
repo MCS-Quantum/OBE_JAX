@@ -107,13 +107,13 @@ class AbstractBayesianModel(ParticlePDF):
                 b = oneoutput.shape[0]
                 outputs = oneoutput.reshape((b,1))
                 ls = multiparameter_multioutput_likelihood_function(oneinput,outputs,params)
-                return ls[0,:]
+                return ls[:,0]
             
             def oneinput_multioutput_oneparam(oneinput,outputs,oneparam):
                 d = oneparam.shape[0]
                 params = oneparam.reshape((d,1))
                 ls = multiparameter_multioutput_likelihood_function(oneinput,outputs,params)
-                return ls[:,0]
+                return ls[0,:]
             
             self.likelihood_function = likelihood_function # takes (oneinput_vec,oneoutput_vec,oneparameter_vec)
             self.oneinput_oneoutput_multiparams = oneinput_oneoutput_multiparams

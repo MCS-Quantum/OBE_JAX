@@ -45,4 +45,4 @@ def entropy_change(current_particles,current_weights,likelihoods):
     new_weights = new_weights/jnp.sum(new_weights)
     H_old = jnp.sum(diffable_plogp_vec(current_weights))
     H_new = jnp.sum(diffable_plogp_vec(new_weights))
-    return H_new-H_old
+    return H_old-H_new

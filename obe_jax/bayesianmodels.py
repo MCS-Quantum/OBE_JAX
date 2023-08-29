@@ -70,7 +70,7 @@ class SimulatedModel(AbstractBayesianModel):
         self.lower_kwargs = kwargs
         self.simulation_likelihood = simulation_likelihood
         self.sim_likelihood_oneinput_oneoutput_multiparams = vmap(simulation_likelihood,in_axes=(None,None,-1,-1))
-        self.sim_likelihood_oneinput_multioutput_multiparams = vmap(self.sim_likelihood_oneinput_oneoutput_multiparams,in_axes=(None,-1,None,None))
+        self.sim_likelihood_oneinput_multioutput_multiparams = vmap(self.sim_likelihood_oneinput_oneoutput_multiparams,in_axes=(None,-1,None,None), out_axes=-1)
         self.latest_precomputed_data = None
 
         if precompute_function:
