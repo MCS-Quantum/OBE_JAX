@@ -6,13 +6,8 @@ import os
 with open(os.path.join(os.getcwd(), 'README.md'), "r") as f:
     long_description = f.read()
 
-# Fetches package details from constants.py file
-# name, version, author, url, author_email
-with open('obe_jax/constants.py') as f:
-    exec(f.read())
-
-setup(name=name,
-      version=version,
+setup(name="OBE_JAX",
+      version="0.1.0",
       description="Optimal Bayesian Experimental Design in JAX",
       long_description=long_description,
       classifiers=[
