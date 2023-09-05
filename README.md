@@ -1,5 +1,8 @@
+# This repository is no longer actively developed. Please see [seabed](https://github.com/MCS-Quantum/seabed)
 
-# OBE_JAX is a JAX powered package for Bayesian inference and experimental design using sequential monte carlo methods
+
+
+## OBE_JAX is a JAX powered package for Bayesian inference and experimental design using sequential monte carlo methods
 
 This package originated as a fork of [OptBayesExpt](https://github.com/usnistgov/optbayesexpt).
 
